@@ -2331,4 +2331,7 @@ int vim_main2(int argc, char **argv);
 #define DIP_OPT	    0x10	/* also use "opt" directory in 'packpath' */
 #define DIP_NORTP   0x20	/* do not use 'runtimepath' */
 
+//#define UNUSED_ROW_CHAR '~'
+#define UNUSED_ROW_CHAR '\0'
+
 #endif /* VIM__H */
