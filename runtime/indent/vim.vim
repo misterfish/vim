@@ -1,7 +1,7 @@
 " Vim indent file
 " Language:	Vim script
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2016 Apr 19
+" Last Change:	2020 Jul 19
 
 " Only load this indent file when no other was loaded.
 if exists("b:did_indent")
@@ -10,7 +10,8 @@ endif
 let b:did_indent = 1
 
 setlocal indentexpr=GetVimIndent()
-setlocal indentkeys+==end,=else,=cat,=fina,=END,0\\
+setlocal indentkeys+==end,=},=else,=cat,=fina,=END,0\\,0=\"\\\ 
+setlocal indentkeys-=0#
 
 let b:undo_indent = "setl indentkeys< indentexpr<"
 
@@ -31,15 +32,17 @@ function GetVimIndent()
   endtry
 endfunc
 
+let s:lineContPat = '^\s*\(\\\|"\\ \)'
+
 function GetVimIndentIntern()
   " Find a non-blank line above the current line.
   let lnum = prevnonblank(v:lnum - 1)
 
-  " If the current line doesn't start with '\' and below a line that starts
-  " with '\', use the indent of the line above it.
+  " If the current line doesn't start with '\' or '"\ ' and below a line that
+  " starts with '\' or '"\ ', use the indent of the line above it.
   let cur_text = getline(v:lnum)
-  if cur_text !~ '^\s*\\'
-    while lnum > 0 && getline(lnum) =~ '^\s*\\'
+  if cur_text !~ s:lineContPat
+    while lnum > 0 && getline(lnum) =~ s:lineContPat
       let lnum = lnum - 1
     endwhile
   endif
@@ -51,21 +54,46 @@ function GetVimIndentIntern()
   let prev_text = getline(lnum)
 
   " Add a 'shiftwidth' after :if, :while, :try, :catch, :finally, :function
-  " and :else.  Add it three times for a line that starts with '\' after
-  " a line that doesn't (or g:vim_indent_cont if it exists).
+  " and :else.  Add it three times for a line that starts with '\' or '"\ '
+  " after a line that doesn't (or g:vim_indent_cont if it exists).
   let ind = indent(lnum)
-  if cur_text =~ '^\s*\\' && v:lnum > 1 && prev_text !~ '^\s*\\'
+
+  " In heredoc indenting works completely differently.
+  if has('syntax_items') 
+    let syn_here = synIDattr(synID(v:lnum, 1, 1), "name")
+    if syn_here =~ 'vimLetHereDocStop'
+      " End of heredoc: use indent of matching start line
+      let lnum = v:lnum - 1
+      while lnum > 0
+	if synIDattr(synID(lnum, 1, 1), "name") !~ 'vimLetHereDoc'
+	  return indent(lnum)
+	endif
+	let lnum -= 1
+      endwhile
+      return 0
+    endif
+    if syn_here =~ 'vimLetHereDoc'
+      if synIDattr(synID(lnum, 1, 1), "name") !~ 'vimLetHereDoc'
+	" First line in heredoc: increase indent
+	return ind + shiftwidth()
+      endif
+      " Heredoc continues: no change in indent
+      return ind
+    endif
+  endif
+
+  if cur_text =~ s:lineContPat && v:lnum > 1 && prev_text !~ s:lineContPat
     if exists("g:vim_indent_cont")
       let ind = ind + g:vim_indent_cont
     else
       let ind = ind + shiftwidth() * 3
     endif
-  elseif prev_text =~ '^\s*aug\%[roup]' && prev_text !~ '^\s*aug\%[roup]\s*!\=\s\+[eE][nN][dD]'
+  elseif prev_text =~ '^\s*aug\%[roup]\s\+' && prev_text !~ '^\s*aug\%[roup]\s\+[eE][nN][dD]\>'
     let ind = ind + shiftwidth()
   else
     " A line starting with :au does not increment/decrement indent.
     if prev_text !~ '^\s*au\%[tocmd]'
-      let i = match(prev_text, '\(^\||\)\s*\(if\|wh\%[ile]\|for\|try\|cat\%[ch]\|fina\%[lly]\|fu\%[nction]\|el\%[seif]\)\>')
+      let i = match(prev_text, '\(^\||\)\s*\({\|\(if\|wh\%[ile]\|for\|try\|cat\%[ch]\|fina\%[lly]\|fu\%[nction]\|def\|el\%[seif]\)\>\)')
       if i >= 0
 	let ind += shiftwidth()
 	if strpart(prev_text, i, 1) == '|' && has('syntax_items')
@@ -88,8 +116,8 @@ function GetVimIndentIntern()
 
 
   " Subtract a 'shiftwidth' on a :endif, :endwhile, :catch, :finally, :endtry,
-  " :endfun, :else and :augroup END.
-  if cur_text =~ '^\s*\(ene\@!\|cat\|fina\|el\|aug\%[roup]\s*!\=\s\+[eE][nN][dD]\)'
+  " :endfun, :enddef, :else and :augroup END.
+  if cur_text =~ '^\s*\(ene\@!\|}\|cat\|fina\|el\|aug\%[roup]\s\+[eE][nN][dD]\)'
     let ind = ind - shiftwidth()
   endif
 

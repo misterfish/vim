@@ -5,30 +5,30 @@ skip_tags: true
 environment:
   matrix:
     - FEATURE: HUGE
-    - FEATURE: NORMAL
 # disabled
 #    - FEATURE: TINY
 #    - FEATURE: SMALL
+#    - FEATURE: NORMAL
 #    - FEATURE: BIG
 
 matrix:
   fast_finish: true
 
 before_build:
+  # Use Windows SDK 7.1 (= MSVC 2010)
   - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /x64 /release'
-  # Work around for Python 2.7.11's bug
-  - reg copy HKLM\SOFTWARE\Python\PythonCore\2.7 HKLM\SOFTWARE\Python\PythonCore\2.7-32 /s /reg:32
-  - reg copy HKLM\SOFTWARE\Python\PythonCore\2.7 HKLM\SOFTWARE\Python\PythonCore\2.7-32 /s /reg:64
+  - 'set INCLUDE=%INCLUDE%C:\Program Files (x86)\Windows Kits\8.1\Include\um'
 
 build_script:
-  - src/appveyor.bat
+  - ci/appveyor.bat
 
 test_script:
   - cd src/testdir
     # Testing with MSVC gvim
+  - path C:\Python35-x64;%PATH%
   - nmake -f Make_dos.mak VIMPROG=..\gvim
   - nmake -f Make_dos.mak clean
-    # Testing with MingW console version
+    # Testing with MSVC console version
   - nmake -f Make_dos.mak VIMPROG=..\vim
 
-# vim: sw=2 sts=2 et ts=2 sr
+# vim: sw=2 sts=2 et ts=8 sr

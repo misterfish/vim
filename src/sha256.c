@@ -1,4 +1,4 @@
-/* vi:set ts=8 sts=4 sw=4:
+/* vi:set ts=8 sts=4 sw=4 noet:
  *
  * VIM - Vi IMproved	by Bram Moolenaar
  *
@@ -23,8 +23,6 @@
 #include "vim.h"
 
 #if defined(FEAT_CRYPT) || defined(FEAT_PERSISTENT_UNDO)
-
-static void sha256_process(context_sha256_T *ctx, char_u data[64]);
 
 #define GET_UINT32(n, b, i)		    \
 {					    \
@@ -262,11 +260,9 @@ sha256_finish(context_sha256_T *ctx, char_u digest[32])
     PUT_UINT32(ctx->state[6], digest, 24);
     PUT_UINT32(ctx->state[7], digest, 28);
 }
-#endif /* FEAT_CRYPT || FEAT_PERSISTENT_UNDO */
+#endif // FEAT_CRYPT || FEAT_PERSISTENT_UNDO
 
 #if defined(FEAT_CRYPT) || defined(PROTO)
-static unsigned int get_some_time(void);
-
 /*
  * Returns hex digest of "buf[buf_len]" in a static array.
  * if "salt" is not NULL also do "salt[salt_len]".
@@ -305,7 +301,7 @@ sha256_key(
     char_u *salt,
     int    salt_len)
 {
-    /* No passwd means don't encrypt */
+    // No passwd means don't encrypt
     if (buf == NULL || *buf == NUL)
 	return (char_u *)"";
 
@@ -374,7 +370,7 @@ sha256_self_test(void)
 	{
 	    failures++;
 	    output[sizeof(output) - 1] = '\0';
-	    /* printf("sha256_self_test %d failed %s\n", i, output); */
+	    // printf("sha256_self_test %d failed %s\n", i, output);
 	}
     }
     return failures > 0 ? FAIL : OK;
@@ -386,7 +382,7 @@ get_some_time(void)
 # ifdef HAVE_GETTIMEOFDAY
     struct timeval tv;
 
-    /* Using usec makes it less predictable. */
+    // Using usec makes it less predictable.
     gettimeofday(&tv, NULL);
     return (unsigned int)(tv.tv_sec + tv.tv_usec);
 # else
@@ -418,14 +414,14 @@ sha2_seed(
     sha256_update(&ctx, (char_u *)random_data, sizeof(random_data));
     sha256_finish(&ctx, sha256sum);
 
-    /* put first block into header. */
+    // put first block into header.
     for (i = 0; i < header_len; i++)
 	header[i] = sha256sum[i % sizeof(sha256sum)];
 
-    /* put remaining block into salt. */
+    // put remaining block into salt.
     if (salt != NULL)
 	for (i = 0; i < salt_len; i++)
 	    salt[i] = sha256sum[(i + header_len) % sizeof(sha256sum)];
 }
 
-#endif /* FEAT_CRYPT */
+#endif // FEAT_CRYPT

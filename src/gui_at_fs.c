@@ -1,4 +1,4 @@
-/* vi:set ts=8 sts=4 sw=4: */
+/* vi:set ts=8 sts=4 sw=4 noet: */
 
 /*
  * Copyright 1989 Software Research Associates, Inc., Tokyo, Japan
@@ -43,11 +43,11 @@
 
 #include "vim.h"
 
-/* Only include this when using the file browser */
+// Only include this when using the file browser
 
 #ifdef FEAT_BROWSE
 
-/* Weird complication: for "make lint" Text.h doesn't combine with Xm.h */
+// Weird complication: for "make lint" Text.h doesn't combine with Xm.h
 #if defined(FEAT_GUI_MOTIF) && defined(FMT8BIT)
 # undef FMT8BIT
 #endif
@@ -56,7 +56,7 @@
 # include "gui_at_sb.h"
 #endif
 
-/***************** SFinternal.h */
+////////////////// SFinternal.h
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -170,40 +170,21 @@ static int	(*SFfunc)();
 
 static int	SFstatus = SEL_FILE_NULL;
 
-/***************** static functions */
+///////////////// forward declare static functions
 
 static void SFsetText(char *path);
 static void SFtextChanged(void);
-static char *SFgetText(void);
-static void SFupdatePath(void);
 static int SFgetDir(SFDir *dir);
 static void SFdrawLists(int doScroll);
 static void SFdrawList(int n, int doScroll);
 static void SFclearList(int n, int doScroll);
-static void SFbuttonPressList(Widget w, int n, XButtonPressedEvent *event);
-static void SFbuttonReleaseList(Widget w, int n, XButtonReleasedEvent *event);
-static void SFdirModTimer(XtPointer cl, XtIntervalId *id);
-static char SFstatChar(struct stat *statBuf);
-static void SFdrawStrings(Window w, SFDir *dir, int from, int to);
-static int SFnewInvertEntry(int n, XMotionEvent *event);
-static void SFinvertEntry(int n);
-static void SFenterList(Widget w, int n, XEnterWindowEvent *event);
-static void SFleaveList(Widget w, int n, XEvent *event);
+static char SFstatChar(stat_T *statBuf);
 static void SFmotionList(Widget w, int n, XMotionEvent *event);
-static void SFvFloatSliderMovedCallback(Widget w, XtPointer n, XtPointer fnew);
 static void SFvSliderMovedCallback(Widget w, int n, int nw);
-static void SFvAreaSelectedCallback(Widget w, XtPointer n, XtPointer pnew);
-static void SFhSliderMovedCallback(Widget w, XtPointer n, XtPointer nw);
-static void SFhAreaSelectedCallback(Widget w, XtPointer n, XtPointer pnew);
-static void SFpathSliderMovedCallback(Widget w, XtPointer client_data, XtPointer nw);
-static void SFpathAreaSelectedCallback(Widget w, XtPointer client_data, XtPointer pnew);
 static Boolean SFworkProc(void);
 static int SFcompareEntries(const void *p, const void *q);
-static void SFprepareToReturn(void);
-static void SFcreateWidgets(Widget toplevel, char *prompt, char *ok, char *cancel);
-static void SFsetColors(guicolor_T bg, guicolor_T fg, guicolor_T scroll_bg, guicolor_T scrollfg);
 
-/***************** xstat.h */
+////////////////// xstat.h
 
 #ifndef S_IXUSR
 # define S_IXUSR 0100
@@ -217,7 +198,7 @@ static void SFsetColors(guicolor_T bg, guicolor_T fg, guicolor_T scroll_bg, guic
 
 #define S_ISXXX(m) ((m) & (S_IXUSR | S_IXGRP | S_IXOTH))
 
-/***************** Path.c */
+////////////////// Path.c
 
 #include <pwd.h>
 
@@ -237,8 +218,6 @@ static SFLogin	*SFlogins;
 
 static int	SFtwiddle = 0;
 
-static int SFchdir(char *path);
-
     static int
 SFchdir(char *path)
 {
@@ -255,8 +234,6 @@ SFchdir(char *path)
 
     return result;
 }
-
-static void SFfree(int i);
 
     static void
 SFfree(int i)
@@ -279,15 +256,11 @@ SFfree(int i)
     dir->dir = NULL;
 }
 
-static void SFstrdup(char **s1, char *s2);
-
     static void
 SFstrdup(char **s1, char *s2)
 {
     *s1 = strcpy(XtMalloc((unsigned)(strlen(s2) + 1)), s2);
 }
-
-static void SFunreadableDir(SFDir *dir);
 
     static void
 SFunreadableDir(SFDir *dir)
@@ -301,8 +274,6 @@ SFunreadableDir(SFDir *dir)
     dir->nEntries = 1;
     dir->nChars = strlen(cannotOpen);
 }
-
-static void SFreplaceText(SFDir *dir, char *str);
 
     static void
 SFreplaceText(SFDir *dir, char *str)
@@ -322,8 +293,6 @@ SFreplaceText(SFDir *dir, char *str)
 
     SFtextChanged();
 }
-
-static void SFexpand(char *str);
 
     static void
 SFexpand(char *str)
@@ -378,8 +347,6 @@ SFexpand(char *str)
     SFreplaceText(dir, growing);
     XtFree(growing);
 }
-
-static int SFfindFile(SFDir *dir, char *str);
 
     static int
 SFfindFile(SFDir *dir, char *str)
@@ -478,8 +445,6 @@ SFfindFile(SFDir *dir, char *str)
     return 0;
 }
 
-static void SFunselect(void);
-
     static void
 SFunselect(void)
 {
@@ -492,15 +457,11 @@ SFunselect(void)
     dir->endSelection = -1;
 }
 
-static int SFcompareLogins(const void *p, const void *q);
-
     static int
 SFcompareLogins(const void *p, const void *q)
 {
     return strcmp(((SFLogin *)p)->name, ((SFLogin *)q)->name);
 }
-
-static void SFgetHomeDirs(void);
 
     static void
 SFgetHomeDirs(void)
@@ -538,7 +499,7 @@ SFgetHomeDirs(void)
 					 (unsigned)(Alloc * sizeof(SFLogin)));
 	}
 	len = strlen(pw->pw_name);
-	entries[i].real = XtMalloc((unsigned) (len + 3));
+	entries[i].real = XtMalloc((unsigned)(len + 3));
 	(void) strcat(strcpy(entries[i].real, "~"), pw->pw_name);
 	entries[i].shown = entries[i].real;
 	entries[i].statDone = 1;
@@ -554,7 +515,7 @@ SFgetHomeDirs(void)
     SFhomeDir.path		= SFcurrentPath;
     SFhomeDir.entries		= entries;
     SFhomeDir.nEntries		= i;
-    SFhomeDir.vOrigin		= 0;	/* :-) */
+    SFhomeDir.vOrigin		= 0;	// :-)
     SFhomeDir.nChars		= maxChars + 2;
     SFhomeDir.hOrigin		= 0;
     SFhomeDir.changed		= 1;
@@ -567,8 +528,6 @@ SFgetHomeDirs(void)
     for (i--; i >= 0; i--)
 	(void)strcat(entries[i].real, "/");
 }
-
-static int SFfindHomeDir(char *begin, char *end);
 
     static int
 SFfindHomeDir(char *begin, char *end)
@@ -868,12 +827,10 @@ SFbuttonReleaseList(
     }
 }
 
-static int SFcheckDir(int n, SFDir *dir);
-
     static int
 SFcheckDir(int n, SFDir *dir)
 {
-    struct stat	statBuf;
+    stat_T	statBuf;
     int		i;
 
     if ((!mch_stat(".", &statBuf)) && (statBuf.st_mtime != dir->mtime))
@@ -932,8 +889,6 @@ SFcheckDir(int n, SFDir *dir)
     return 0;
 }
 
-static int SFcheckFiles(SFDir *dir);
-
     static int
 SFcheckFiles(SFDir *dir)
 {
@@ -943,7 +898,7 @@ SFcheckFiles(SFDir *dir)
     int		i;
     char	*str;
     int		last;
-    struct stat	statBuf;
+    stat_T	statBuf;
 
     result = 0;
 
@@ -1014,10 +969,10 @@ SFdirModTimer(XtPointer cl UNUSED, XtIntervalId *id UNUSED)
 	    SFdirModTimer, (XtPointer) NULL);
 }
 
-/* Return a single character describing what kind of file STATBUF is.  */
+// Return a single character describing what kind of file STATBUF is.
 
     static char
-SFstatChar(struct stat *statBuf)
+SFstatChar(stat_T *statBuf)
 {
     if (S_ISDIR (statBuf->st_mode))
 	return '/';
@@ -1026,11 +981,11 @@ SFstatChar(struct stat *statBuf)
 #ifdef S_ISSOCK
     if (S_ISSOCK (statBuf->st_mode))
 	return '=';
-#endif /* S_ISSOCK */
+#endif // S_ISSOCK
     return ' ';
 }
 
-/***************** Draw.c */
+////////////////// Draw.c
 
 #ifdef FEAT_GUI_NEXTAW
 # include <X11/neXtaw/Cardinals.h>
@@ -1077,8 +1032,6 @@ static int SFcurrentListY;
 
 static XtIntervalId SFscrollTimerId;
 
-static void SFinitFont(void);
-
     static void
 SFinitFont(void)
 {
@@ -1110,7 +1063,7 @@ SFinitFont(void)
 #endif
 	if (!SFfont)
 	{
-	    EMSG2(_("E616: vim_SelFile: can't get font %s"), SF_DEFAULT_FONT);
+	    semsg(_("E616: vim_SelFile: can't get font %s"), SF_DEFAULT_FONT);
 	    SFstatus = SEL_FILE_CANCEL;
 	    return;
 	}
@@ -1127,8 +1080,6 @@ SFinitFont(void)
     SFcharHeight = SFcharAscent + SFfont->max_bounds.descent;
 #endif
 }
-
-static void SFcreateGC(void);
 
     static void
 SFcreateGC(void)
@@ -1261,8 +1212,6 @@ SFclearList(int n, int doScroll)
     }
 }
 
-static void SFdeleteEntry(SFDir *dir, SFEntry *entry);
-
     static void
 SFdeleteEntry(SFDir *dir, SFEntry *entry)
 {
@@ -1313,23 +1262,19 @@ SFdeleteEntry(SFDir *dir, SFEntry *entry)
 #endif
 }
 
-static void SFwriteStatChar(char *name, int last, struct stat *statBuf);
-
     static void
 SFwriteStatChar(
     char	*name,
     int		last,
-    struct stat	*statBuf)
+    stat_T	*statBuf)
 {
     name[last] = SFstatChar(statBuf);
 }
 
-static int SFstatAndCheck(SFDir *dir, SFEntry *entry);
-
     static int
 SFstatAndCheck(SFDir *dir, SFEntry *entry)
 {
-    struct stat	statBuf;
+    stat_T	statBuf;
     char	save;
     int		last;
 
@@ -1362,7 +1307,7 @@ SFstatAndCheck(SFDir *dir, SFEntry *entry)
 			int len;
 
 			len = strlen(shown);
-			entry->shown = XtMalloc((unsigned) (len + 2));
+			entry->shown = XtMalloc((unsigned)(len + 2));
 			(void) strcpy(entry->shown, shown);
 			SFwriteStatChar(entry->shown, len, &statBuf);
 			entry->shown[len + 1] = 0;
@@ -1532,8 +1477,6 @@ SFinvertEntry(int n)
 	    SFentryHeight);
 }
 
-static unsigned long SFscrollTimerInterval(void);
-
     static unsigned long
 SFscrollTimerInterval(void)
 {
@@ -1560,8 +1503,6 @@ SFscrollTimerInterval(void)
 
     return (unsigned long)t;
 }
-
-static void SFscrollTimer(XtPointer p, XtIntervalId *id);
 
     static void
 SFscrollTimer(XtPointer p, XtIntervalId *id UNUSED)
@@ -1663,7 +1604,7 @@ SFenterList(Widget w UNUSED, int n, XEnterWindowEvent *event)
 {
     int			nw;
 
-    /* sanity */
+    // sanity
     if (SFcurrentInvert[n] != -1)
     {
 	SFinvertEntry(n);
@@ -2039,7 +1980,7 @@ SFworkProc(void)
     return True;
 }
 
-/***************** Dir.c */
+////////////////// Dir.c
 
     static int
 SFcompareEntries(const void *p, const void *q)
@@ -2059,7 +2000,7 @@ SFgetDir(
     char		*str;
     int			len;
     int			maxChars;
-    struct stat		statBuf;
+    stat_T		statBuf;
 
     maxChars = strlen(dir->dir) - 1;
 
@@ -2079,7 +2020,7 @@ SFgetDir(
 
     while ((dp = readdir(dirp)))
     {
-	/* Ignore "." and ".." */
+	// Ignore "." and ".."
 	if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
 	    continue;
 	if (i >= Alloc)
@@ -2091,7 +2032,7 @@ SFgetDir(
 	result[i].statDone = 0;
 	str = dp->d_name;
 	len = strlen(str);
-	result[i].real = XtMalloc((unsigned) (len + 2));
+	result[i].real = XtMalloc((unsigned)(len + 2));
 	(void) strcat(strcpy(result[i].real, str), " ");
 	if (len > maxChars)
 	    maxChars = len;
@@ -2110,7 +2051,7 @@ SFgetDir(
     return 0;
 }
 
-/***************** SFinternal.h */
+////////////////// SFinternal.h
 
 #include <sys/param.h>
 #include <X11/cursorfont.h>
@@ -2131,8 +2072,6 @@ static char *oneLineTextEditTranslations = "\
 	Ctrl<Key>M:	redraw-display()\n\
 ";
 
-static void SFexposeList(Widget w, XtPointer n, XEvent *event, Boolean *cont);
-
     static void
 SFexposeList(
     Widget	w UNUSED,
@@ -2145,8 +2084,6 @@ SFexposeList(
 
     SFdrawList((int)(long)n, SF_DO_NOT_SCROLL);
 }
-
-static void SFmodVerifyCallback(Widget w, XtPointer client_data, XEvent *event, Boolean *cont);
 
     static void
 SFmodVerifyCallback(
@@ -2164,8 +2101,6 @@ SFmodVerifyCallback(
 	SFstatus = SEL_FILE_TEXT;
 }
 
-static void SFokCallback(Widget w, XtPointer cl, XtPointer cd);
-
     static void
 SFokCallback(Widget w UNUSED, XtPointer cl UNUSED, XtPointer cd UNUSED)
 {
@@ -2178,8 +2113,6 @@ static XtCallbackRec SFokSelect[] =
     { NULL, (XtPointer) NULL },
 };
 
-static void SFcancelCallback(Widget w, XtPointer cl, XtPointer cd);
-
     static void
 SFcancelCallback(Widget w UNUSED, XtPointer cl UNUSED, XtPointer cd UNUSED)
 {
@@ -2191,8 +2124,6 @@ static XtCallbackRec SFcancelSelect[] =
     { SFcancelCallback, (XtPointer) NULL },
     { NULL, (XtPointer) NULL },
 };
-
-static void SFdismissAction(Widget w, XEvent *event, String *params, Cardinal *num_params);
 
     static void
 SFdismissAction(
@@ -2271,7 +2202,7 @@ SFsetColors(
 	XSetForeground(gui.dpy, SFtextGC, fg);
 	XSetForeground(gui.dpy, SFlineGC, fg);
 
-	/* This is an xor GC, so combine the fg and background */
+	// This is an xor GC, so combine the fg and background
 	XSetBackground(gui.dpy, SFinvertGC, fg ^ bg);
 	XSetForeground(gui.dpy, SFinvertGC, fg ^ bg);
     }
@@ -2319,7 +2250,7 @@ SFcreateWidgets(
 		XtNtitle, prompt,
 		NULL);
 
-    /* Add WM_DELETE_WINDOW protocol */
+    // Add WM_DELETE_WINDOW protocol
     XtAppAddActions(XtWidgetToApplicationContext(selFile),
 	    actions, XtNumber(actions));
     XtOverrideTranslations(selFile,
@@ -2591,7 +2522,7 @@ SFcreateWidgets(
     XtSetMappedWhenManaged(selFile, False);
     XtRealizeWidget(selFile);
 
-    /* Add WM_DELETE_WINDOW protocol */
+    // Add WM_DELETE_WINDOW protocol
     SFwmDeleteWindow = XInternAtom(SFdisplay, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(SFdisplay, XtWindow(selFile), &SFwmDeleteWindow, 1);
 
@@ -2678,7 +2609,7 @@ SFgetText(void)
 	    XtNstring, &wcbuf,
 	NULL);
 	mbslength = wcstombs(NULL, wcbuf, 0);
-	/* Hack: some broken wcstombs() returns zero, just get a large buffer */
+	// Hack: some broken wcstombs() returns zero, just get a large buffer
 	if (mbslength == 0 && wcbuf != NULL && wcbuf[0] != 0)
 	    mbslength = MAXPATHL;
 	buf=(char *)XtMalloc(mbslength + 1);
@@ -2698,7 +2629,7 @@ SFprepareToReturn(void)
     XtRemoveTimeOut(SFdirModTimerId);
     if (SFchdir(SFstartDir))
     {
-	EMSG(_("E614: vim_SelFile: can't return to current directory"));
+	emsg(_("E614: vim_SelFile: can't return to current directory"));
 	SFstatus = SEL_FILE_CANCEL;
     }
 }
@@ -2714,7 +2645,7 @@ vim_SelFile(
     guicolor_T	fg,
     guicolor_T	bg,
     guicolor_T	scroll_fg,
-    guicolor_T	scroll_bg) /* The "Scrollbar" group colors */
+    guicolor_T	scroll_bg) // The "Scrollbar" group colors
 {
     static int	firstTime = 1;
     XEvent	event;
@@ -2727,7 +2658,7 @@ vim_SelFile(
 
     if (mch_dirname((char_u *)SFstartDir, MAXPATHL) == FAIL)
     {
-	EMSG(_("E615: vim_SelFile: can't get current directory"));
+	emsg(_("E615: vim_SelFile: can't get current directory"));
 	return NULL;
     }
 
@@ -2800,4 +2731,4 @@ vim_SelFile(
 	}
     }
 }
-#endif /* FEAT_BROWSE */
+#endif // FEAT_BROWSE

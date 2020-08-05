@@ -1,10 +1,10 @@
-*netbeans.txt*  For Vim version 7.4.  Last change: 2016 Feb 18
+*netbeans.txt*  For Vim version 8.2.  Last change: 2020 Apr 19
 
 
 		  VIM REFERENCE MANUAL    by Gordon Prieur et al.
 
 
-					*netbeans* *netbeans-support*
+					*netbeans* *NetBeans* *netbeans-support*
 
 Vim NetBeans Protocol: a socket interface for Vim integration into an IDE.
 
@@ -24,7 +24,6 @@ Vim NetBeans Protocol: a socket interface for Vim integration into an IDE.
     10.4. Obtaining the External Editor Module	|obtaining-exted|
     10.5. Setting up NetBeans to run with Vim	|netbeans-setup|
 
-{Vi does not have any of these features}
 {only available when compiled with the |+netbeans_intg| feature}
 
 ==============================================================================
@@ -41,23 +40,30 @@ or environment providing a socket interface can control Vim using this
 protocol. There are existing implementations in C, C++, Python and Java. The
 name NetBeans is kept today for historical reasons.
 
-Current projects using the NetBeans protocol of Vim are:
-- VimIntegration, description of various projects doing Vim Integration:
+Active project using the NetBeans protocol of Vim:
+- Eclim, http://eclim.org/
+
+VimIntegration, description of various projects doing Vim Integration:
 	http://www.freehackers.org/VimIntegration
-- Agide, an IDE for the AAP project, written in Python:
-	http://www.a-a-p.org
+
+Projects using the NetBeans protocol of Vim are or were:
+- Agide, an IDE for the AAP project, written in Python (now replaced by
+  |:Termdebug|): http://www.a-a-p.org
 - Clewn, a gdb integration into Vim, written in C:
 	http://clewn.sourceforge.net/
 - Pyclewn, a gdb integration into Vim, written in Python:
 	http://pyclewn.sourceforge.net/
+- VimWrapper, library to easy Vim integration into IDE:
+	http://www.freehackers.org/VimWrapper
+Outdated projects (links don't work):
 - VimPlugin, integration of Vim inside Eclipse:
 	http://vimplugin.sourceforge.net/wiki/pmwiki.php
 - PIDA, IDE written in Python integrating Vim:
 	http://pida.co.uk/
-- VimWrapper, library to easy Vim integration into IDE:
-	http://www.freehackers.org/VimWrapper
 
 Check the specific project pages to see how to use Vim with these projects.
+
+An alternative is to use a channel, see |channel|.
 
 In the rest of this help page, we will use the term "Vim Controller" to
 describe the program controlling Vim through the NetBeans socket interface.
@@ -118,11 +124,21 @@ In case you do not want the NetBeans interface you can disable it by
 uncommenting a line with "--disable-netbeans" in the Makefile.
 
 Currently the NetBeans interface is supported by Vim running in a terminal and
-by GVim when it is run with one of the following GUIs: GTK, GNOME, Windows,
+by gvim when it is run with one of the following GUIs: GTK, GNOME, Windows,
 Athena and Motif.
 
-If Motif support is required the user must supply XPM libraries.  See
-|workshop-xpm| for details on obtaining the latest version of XPM.
+							*netbeans-xpm*
+If Motif support is required the user must supply XPM libraries.
+The XPM library is required to show images within Vim with Motif or Athena.
+Without it the toolbar and signs will be disabled.
+
+The XPM library is provided by Arnaud Le Hors of the French National Institute
+for Research in Computer Science and Control.  It can be downloaded from
+http://cgit.freedesktop.org/xorg/lib/libXpm.  The current release, as of this
+writing, is xpm-3.4k-solaris.tgz, which is a gzip'ed tar file.  If you create
+the directory /usr/local/xpm and untar the file there you can use the
+uncommented lines in the Makefile without changing them.  If you use another
+xpm directory you will need to change the XPM_DIR in src/Makefile.
 
 
 On MS-Windows:
@@ -407,9 +423,9 @@ defineAnnoType typeNum typeName tooltip glyphFile fg bg
 		Vim will define a sign for the annotation.
 		When color is a number, this is the "#rrggbb" Red, Green and
 		Blue values of the color (see |gui-colors|) and the
-		highlighting is only defined for GVim.
+		highlighting is only defined for gVim.
 		When color is a name, this color is defined both for Vim
-		running in a color terminal and for GVim.
+		running in a color terminal and for gVim.
 		When both "fg" and "bg" are "none" no line highlighting is
 		used (new in version 2.1).
 		When "glyphFile" is empty, no text sign is used (new in
@@ -450,11 +466,13 @@ guard off len
 initDone	Mark the buffer as ready for use.  Implicitly makes the buffer
 		the current buffer.  Fires the BufReadPost autocommand event.
 
-insertDone
+insertDone starteol readonly
 		Sent by Vim Controller to tell Vim an initial file insert is
-		done.  This triggers a read message being printed.  Prior to
-		version 2.3, no read messages were displayed after opening a
-		file.  New in version 2.3.
+		done.  This triggers a read message being printed.  If
+		"starteol" is "F" then the last line doesn't have a EOL. If
+		"readonly" is "T" then the file is marked as readonly. Prior
+		to version 2.3, no read messages were displayed after opening
+		a file.  New in version 2.3.
 
 moveAnnoToFront serNum
 		Not implemented.
@@ -994,7 +1012,7 @@ to "Vim".  In the Expert tab make sure the "Vim Command" is correct.
 You should be careful if you change the "Vim Command".  There are command
 line options there which must be there for the connection to be properly
 set up.  You can change the command name but that's about it.  If your gvim
-can be found by your $PATH then the VIM Command can start with "gvim".  If
+can be found by your $PATH then the Vim Command can start with "gvim".  If
 you don't want gvim searched from your $PATH then hard code in the full
 Unix path name.  At this point you should get a gvim for any source file
 you open in NetBeans.
@@ -1005,4 +1023,4 @@ Expert tab MIME Type property.  NetBeans is MIME oriented and the External
 Editor will only open MIME types specified in this property.
 
 
- vim:tw=78:ts=8:ft=help:norl:
+ vim:tw=78:ts=8:noet:ft=help:norl:

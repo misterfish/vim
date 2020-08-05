@@ -1,4 +1,4 @@
-/* vi:set ts=8 sts=4 sw=4:
+/* vi:set ts=8 sts=4 sw=4 noet:
  *
  * VIM - Vi IMproved		by Bram Moolenaar
  *				GUI/Motif support by Robert Webb
@@ -12,6 +12,8 @@
  * Not used for GTK.
  */
 
+#include "vim.h"
+
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
 #include <X11/StringDefs.h>
@@ -19,18 +21,20 @@
 #include <X11/Shell.h>
 #include <X11/cursorfont.h>
 
-#include "vim.h"
-
 /*
- * For Workshop XpmP.h is preferred, because it makes the signs drawn with a
- * transparent background instead of black.
+ * XpmP.h is preferred, because it makes the signs drawn with a transparent
+ * background instead of black.
  */
 #if defined(HAVE_XM_XPMP_H) && defined(FEAT_GUI_MOTIF) \
-	&& (!defined(HAVE_X11_XPM_H) || defined(FEAT_SUN_WORKSHOP))
+	&& !defined(HAVE_X11_XPM_H)
 # include <Xm/XpmP.h>
 #else
 # ifdef HAVE_X11_XPM_H
-#  include <X11/xpm.h>
+#  ifdef VMS
+#   include <xpm.h>
+#  else
+#   include <X11/xpm.h>
+#  endif
 # endif
 #endif
 
@@ -50,14 +54,10 @@
 # include <X11/Xmu/Editres.h>
 #endif
 
-#ifdef FEAT_BEVAL_TIP
-# include "gui_beval.h"
-#endif
-
 #define VIM_NAME	"vim"
 #define VIM_CLASS	"Vim"
 
-/* Default resource values */
+// Default resource values
 #define DFLT_FONT		"7x13"
 #ifdef FONTSET_ALWAYS
 # define DFLT_MENU_FONT		XtDefaultFontSet
@@ -71,23 +71,23 @@
 # define DFLT_MENU_FG_COLOR	"black"
 # define DFLT_SCROLL_BG_COLOR	"gray60"
 # define DFLT_SCROLL_FG_COLOR	"gray77"
-# define DFLT_TOOLTIP_BG_COLOR	"#ffffffff9191"
-# define DFLT_TOOLTIP_FG_COLOR	"#000000000000"
+# define DFLT_TOOLTIP_BG_COLOR	"#ffff91"
+# define DFLT_TOOLTIP_FG_COLOR	"#000000"
 #else
-/* use the default (CDE) colors */
+// use the default (CDE) colors
 # define DFLT_MENU_BG_COLOR	""
 # define DFLT_MENU_FG_COLOR	""
 # define DFLT_SCROLL_BG_COLOR	""
 # define DFLT_SCROLL_FG_COLOR	""
-# define DFLT_TOOLTIP_BG_COLOR	"#ffffffff9191"
-# define DFLT_TOOLTIP_FG_COLOR	"#000000000000"
+# define DFLT_TOOLTIP_BG_COLOR	"#ffff91"
+# define DFLT_TOOLTIP_FG_COLOR	"#000000"
 #endif
 
 Widget vimShell = (Widget)0;
 
-static Atom   wm_atoms[2];	/* Window Manager Atoms */
-#define DELETE_WINDOW_IDX 0	/* index in wm_atoms[] for WM_DELETE_WINDOW */
-#define SAVE_YOURSELF_IDX 1	/* index in wm_atoms[] for WM_SAVE_YOURSELF */
+static Atom   wm_atoms[2];	// Window Manager Atoms
+#define DELETE_WINDOW_IDX 0	// index in wm_atoms[] for WM_DELETE_WINDOW
+#define SAVE_YOURSELF_IDX 1	// index in wm_atoms[] for WM_SAVE_YOURSELF
 
 #ifdef FEAT_XFONTSET
 /*
@@ -136,23 +136,12 @@ static guicolor_T	prev_sp_color = INVALCOLOR;
 static XButtonPressedEvent last_mouse_event;
 #endif
 
-static int find_closest_color(Colormap colormap, XColor *colorPtr);
-static void gui_x11_timer_cb(XtPointer timed_out, XtIntervalId *interval_id);
-static void gui_x11_visibility_cb(Widget w, XtPointer dud, XEvent *event, Boolean *dum);
-static void gui_x11_expose_cb(Widget w, XtPointer dud, XEvent *event, Boolean *dum);
-static void gui_x11_resize_window_cb(Widget w, XtPointer dud, XEvent *event, Boolean *dum);
-static void gui_x11_focus_change_cb(Widget w, XtPointer data, XEvent *event, Boolean *dum);
-static void gui_x11_enter_cb(Widget w, XtPointer data, XEvent *event, Boolean *dum);
-static void gui_x11_leave_cb(Widget w, XtPointer data, XEvent *event, Boolean *dum);
-static void gui_x11_mouse_cb(Widget w, XtPointer data, XEvent *event, Boolean *dum);
 static void gui_x11_check_copy_area(void);
 #ifdef FEAT_CLIENTSERVER
 static void gui_x11_send_event_handler(Widget, XtPointer, XEvent *, Boolean *);
 #endif
 static void gui_x11_wm_protocol_handler(Widget, XtPointer, XEvent *, Boolean *);
-static void gui_x11_blink_cb(XtPointer timed_out, XtIntervalId *interval_id);
 static Cursor gui_x11_create_blank_mouse(void);
-static void draw_curl(int row, int col, int cells);
 
 
 /*
@@ -209,7 +198,7 @@ static struct specialkey
     {XK_F32,		'F', 'M'},
     {XK_F33,		'F', 'N'},
     {XK_F34,		'F', 'O'},
-    {XK_F35,		'F', 'P'},	/* keysymdef.h defines up to F35 */
+    {XK_F35,		'F', 'P'},	// keysymdef.h defines up to F35
 #ifdef SunXK_F36
     {SunXK_F36,		'F', 'Q'},
     {SunXK_F37,		'F', 'R'},
@@ -226,7 +215,7 @@ static struct specialkey
     {XK_Next,		'k', 'N'},
     {XK_Print,		'%', '9'},
 
-    /* Keypad keys: */
+    // Keypad keys:
 #ifdef XK_KP_Left
     {XK_KP_Left,	'k', 'l'},
     {XK_KP_Right,	'k', 'r'},
@@ -258,7 +247,7 @@ static struct specialkey
     {XK_KP_9,		'K', 'L'},
 #endif
 
-    /* End of list marker: */
+    // End of list marker:
     {(KeySym)0,	    0, 0}
 };
 
@@ -278,19 +267,19 @@ static struct specialkey
 #define XtCMenuFontSet		"MenuFontSet"
 
 
-/* Resources for setting the foreground and background colors of menus */
+// Resources for setting the foreground and background colors of menus
 #define XtNmenuBackground	"menuBackground"
 #define XtCMenuBackground	"MenuBackground"
 #define XtNmenuForeground	"menuForeground"
 #define XtCMenuForeground	"MenuForeground"
 
-/* Resources for setting the foreground and background colors of scrollbars */
+// Resources for setting the foreground and background colors of scrollbars
 #define XtNscrollBackground	"scrollBackground"
 #define XtCScrollBackground	"ScrollBackground"
 #define XtNscrollForeground	"scrollForeground"
 #define XtCScrollForeground	"ScrollForeground"
 
-/* Resources for setting the foreground and background colors of tooltip */
+// Resources for setting the foreground and background colors of tooltip
 #define XtNtooltipBackground	"tooltipBackground"
 #define XtCTooltipBackground	"TooltipBackground"
 #define XtNtooltipForeground	"tooltipForeground"
@@ -394,7 +383,7 @@ static XtResource vim_resources[] =
 	(XtPointer)SB_DEFAULT_WIDTH
     },
 #ifdef FEAT_MENU
-# ifdef FEAT_GUI_ATHENA		/* with Motif the height is always computed */
+# ifdef FEAT_GUI_ATHENA		// with Motif the height is always computed
     {
 	XtNmenuHeight,
 	XtCMenuHeight,
@@ -402,7 +391,7 @@ static XtResource vim_resources[] =
 	sizeof(int),
 	XtOffsetOf(gui_T, menu_height),
 	XtRImmediate,
-	(XtPointer)MENU_DEFAULT_HEIGHT	    /* Should figure out at run time */
+	(XtPointer)MENU_DEFAULT_HEIGHT	    // Should figure out at run time
     },
 # endif
     {
@@ -456,7 +445,7 @@ static XtResource vim_resources[] =
 	XtRString,
 	DFLT_SCROLL_BG_COLOR
     },
-#ifdef FEAT_BEVAL
+#ifdef FEAT_BEVAL_GUI
     {
 	XtNtooltipForeground,
 	XtCTooltipForeground,
@@ -484,7 +473,7 @@ static XtResource vim_resources[] =
 	XtRString,
 	DFLT_TOOLTIP_FONT
     },
-    /* This one isn't really needed, keep for Sun Workshop? */
+    // This one may not be really needed?
     {
 	"balloonEvalFontSet",
 	XtCFontSet,
@@ -494,7 +483,7 @@ static XtResource vim_resources[] =
 	XtRImmediate,
 	(XtPointer)NOFONTSET
     },
-#endif /* FEAT_BEVAL */
+#endif // FEAT_BEVAL_GUI
 #ifdef FEAT_XIM
     {
 	"preeditType",
@@ -514,7 +503,7 @@ static XtResource vim_resources[] =
 	XtRString,
 	NULL
     },
-#endif /* FEAT_XIM */
+#endif // FEAT_XIM
 };
 
 /*
@@ -525,7 +514,7 @@ static XtResource vim_resources[] =
  */
 static XrmOptionDescRec cmdline_options[] =
 {
-    /* We handle these options ourselves */
+    // We handle these options ourselves
     {"-bg",		".background",	    XrmoptionSepArg,	NULL},
     {"-background",	".background",	    XrmoptionSepArg,	NULL},
     {"-fg",		".foreground",	    XrmoptionSepArg,	NULL},
@@ -575,6 +564,25 @@ gui_x11_timer_cb(
     *((int *)timed_out) = TRUE;
 }
 
+#ifdef FEAT_JOB_CHANNEL
+    static void
+channel_poll_cb(
+    XtPointer	    client_data,
+    XtIntervalId    *interval_id UNUSED)
+{
+    XtIntervalId    *channel_timer = (XtIntervalId *)client_data;
+
+    // Using an event handler for a channel that may be disconnected does
+    // not work, it hangs.  Instead poll for messages.
+    channel_handle_events(TRUE);
+    parse_queued_messages();
+
+    // repeat
+    *channel_timer = XtAppAddTimeOut(app_context, (long_u)20,
+						 channel_poll_cb, client_data);
+}
+#endif
+
     static void
 gui_x11_visibility_cb(
     Widget	w UNUSED,
@@ -594,7 +602,7 @@ gui_x11_visibility_cb(
     XSetGraphicsExposures(gui.dpy, gui.text_gc,
 	    gui.visibility != VisibilityUnobscured);
 
-    /* This is needed for when redrawing is slow. */
+    // This is needed for when redrawing is slow.
     gui_mch_update();
 }
 
@@ -611,14 +619,14 @@ gui_x11_expose_cb(
     if (event->type != Expose)
 	return;
 
-    out_flush();	    /* make sure all output has been processed */
+    out_flush();	    // make sure all output has been processed
 
     gevent = (XExposeEvent *)event;
     gui_redraw(gevent->x, gevent->y, gevent->width, gevent->height);
 
     new_x = FILL_X(0);
 
-    /* Clear the border areas if needed */
+    // Clear the border areas if needed
     if (gevent->x < new_x)
 	XClearArea(gui.dpy, gui.wid, 0, 0, new_x, 0, False);
     if (gevent->y < FILL_Y(0))
@@ -628,12 +636,11 @@ gui_x11_expose_cb(
     if (gevent->y > FILL_Y(Rows))
 	XClearArea(gui.dpy, gui.wid, 0, FILL_Y((int)Rows), 0, 0, False);
 
-    /* This is needed for when redrawing is slow. */
+    // This is needed for when redrawing is slow.
     gui_mch_update();
 }
 
-#if ((defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)) \
-	&& defined(FEAT_GUI_MOTIF)) || defined(PROTO)
+#if (defined(FEAT_NETBEANS_INTG) && defined(FEAT_GUI_MOTIF)) || defined(PROTO)
 /*
  * This function fills in the XRectangle object with the current x,y
  * coordinates and height, width so that an XtVaSetValues to the same shell of
@@ -697,15 +704,6 @@ gui_x11_resize_window_cb(
 #endif
 		     );
     }
-#ifdef FEAT_SUN_WORKSHOP
-    if (usingSunWorkShop)
-    {
-	XRectangle  rec;
-
-	shellRectangle(w, &rec);
-	workshop_frame_moved(rec.x, rec.y, rec.width, rec.height);
-    }
-#endif
 #if defined(FEAT_NETBEANS_INTG) && defined(FEAT_GUI_MOTIF)
     if (netbeans_active())
     {
@@ -750,7 +748,7 @@ gui_x11_leave_cb(
     gui_focus_change(FALSE);
 }
 
-#if defined(X_HAVE_UTF8_STRING) && defined(FEAT_MBYTE)
+#if defined(X_HAVE_UTF8_STRING)
 # if X_HAVE_UTF8_STRING
 #  define USE_UTF8LOOKUP
 # endif
@@ -773,8 +771,8 @@ gui_x11_key_hit_cb(
 #else
     char_u		string[4], string2[3];
 #endif
-    KeySym		key_sym, key_sym2;
-    int			len, len2;
+    KeySym		key_sym;
+    int			len;
     int			i;
     int			modifiers;
     int			key;
@@ -785,8 +783,8 @@ gui_x11_key_hit_cb(
     if (xic)
     {
 # ifdef USE_UTF8LOOKUP
-	/* XFree86 4.0.2 or newer: Be able to get UTF-8 characters even when
-	 * the locale isn't utf-8. */
+	// XFree86 4.0.2 or newer: Be able to get UTF-8 characters even when
+	// the locale isn't utf-8.
 	if (enc_utf8)
 	    len = Xutf8LookupString(xic, ev_press, (char *)string,
 				  sizeof(string_shortbuf), &key_sym, &status);
@@ -799,8 +797,8 @@ gui_x11_key_hit_cb(
 	    string = (char_u *)XtMalloc(len + 1);
 	    string_alloced = True;
 # ifdef USE_UTF8LOOKUP
-	    /* XFree86 4.0.2 or newer: Be able to get UTF-8 characters even
-	     * when the locale isn't utf-8.  */
+	    // XFree86 4.0.2 or newer: Be able to get UTF-8 characters even
+	    // when the locale isn't utf-8.
 	    if (enc_utf8)
 		len = Xutf8LookupString(xic, ev_press, (char *)string,
 						      len, &key_sym, &status);
@@ -812,16 +810,15 @@ gui_x11_key_hit_cb(
 	if (status == XLookupNone || status == XLookupChars)
 	    key_sym = XK_VoidSymbol;
 
-# ifdef FEAT_MBYTE
-	/* Do conversion from 'termencoding' to 'encoding'.  When using
-	 * Xutf8LookupString() it has already been done. */
+	// Do conversion from 'termencoding' to 'encoding'.  When using
+	// Xutf8LookupString() it has already been done.
 	if (len > 0 && input_conv.vc_type != CONV_NONE
-#  ifdef USE_UTF8LOOKUP
+# ifdef USE_UTF8LOOKUP
 		&& !enc_utf8
-#  endif
+# endif
 		)
 	{
-	    int		maxlen = len * 4 + 40;  /* guessed */
+	    int		maxlen = len * 4 + 40;	// guessed
 	    char_u	*p = (char_u *)XtMalloc(maxlen);
 
 	    mch_memmove(p, string, len);
@@ -831,10 +828,9 @@ gui_x11_key_hit_cb(
 	    string_alloced = True;
 	    len = convert_input(p, len, maxlen);
 	}
-# endif
 
-	/* Translate CSI to K_CSI, otherwise it could be recognized as the
-	 * start of a special key. */
+	// Translate CSI to K_CSI, otherwise it could be recognized as the
+	// start of a special key.
 	for (i = 0; i < len; ++i)
 	    if (string[i] == CSI)
 	    {
@@ -867,16 +863,8 @@ gui_x11_key_hit_cb(
 	len = 0;
 #endif
 
-#ifdef FEAT_HANGULIN
-    if ((key_sym == XK_space) && (ev_press->state & ShiftMask))
-    {
-	hangul_input_state_toggle();
-	goto theend;
-    }
-#endif
-
     if (key_sym == XK_space)
-	string[0] = ' ';	/* Otherwise Ctrl-Space doesn't work */
+	string[0] = ' ';	// Otherwise Ctrl-Space doesn't work
 
     /*
      * Only on some machines ^_ requires Ctrl+Shift+minus.  For consistency,
@@ -886,7 +874,7 @@ gui_x11_key_hit_cb(
 	string[0] = Ctrl__;
 
 #ifdef XK_ISO_Left_Tab
-    /* why do we get XK_ISO_Left_Tab instead of XK_Tab for shift-tab? */
+    // why do we get XK_ISO_Left_Tab instead of XK_Tab for shift-tab?
     if (key_sym == XK_ISO_Left_Tab)
     {
 	key_sym = XK_Tab;
@@ -895,62 +883,9 @@ gui_x11_key_hit_cb(
     }
 #endif
 
-    /* Check for Alt/Meta key (Mod1Mask), but not for a BS, DEL or character
-     * that already has the 8th bit set.  And not when using a double-byte
-     * encoding, setting the 8th bit may make it the lead byte of a
-     * double-byte character. */
-    if (len == 1
-	    && (ev_press->state & Mod1Mask)
-	    && !(key_sym == XK_BackSpace || key_sym == XK_Delete)
-	    && (string[0] & 0x80) == 0
-#ifdef FEAT_MBYTE
-	    && !enc_dbcs
-#endif
-	    )
-    {
-#if defined(FEAT_MENU) && defined(FEAT_GUI_MOTIF)
-	/* Ignore ALT keys when they are used for the menu only */
-	if (gui.menu_is_active
-		&& (p_wak[0] == 'y'
-		    || (p_wak[0] == 'm' && gui_is_menu_shortcut(string[0]))))
-	    goto theend;
-#endif
-	/*
-	 * Before we set the 8th bit, check to make sure the user doesn't
-	 * already have a mapping defined for this sequence. We determine this
-	 * by checking to see if the input would be the same without the
-	 * Alt/Meta key.
-	 * Don't do this for <S-M-Tab>, that should become K_S_TAB with ALT.
-	 */
-	ev_press->state &= ~Mod1Mask;
-	len2 = XLookupString(ev_press, (char *)string2, sizeof(string2),
-							     &key_sym2, NULL);
-	if (key_sym2 == XK_space)
-	    string2[0] = ' ';	    /* Otherwise Meta-Ctrl-Space doesn't work */
-	if (	   len2 == 1
-		&& string[0] == string2[0]
-		&& !(key_sym == XK_Tab && (ev_press->state & ShiftMask)))
-	{
-	    string[0] |= 0x80;
-#ifdef FEAT_MBYTE
-	    if (enc_utf8) /* convert to utf-8 */
-	    {
-		string[1] = string[0] & 0xbf;
-		string[0] = ((unsigned)string[0] >> 6) + 0xc0;
-		if (string[1] == CSI)
-		{
-		    string[2] = KS_EXTRA;
-		    string[3] = (int)KE_CSI;
-		    len = 4;
-		}
-		else
-		    len = 2;
-	    }
-#endif
-	}
-	else
-	    ev_press->state |= Mod1Mask;
-    }
+    // We used to apply Alt/Meta to the key here (Mod1Mask), but that is now
+    // done later, the same as it happens for the terminal.  Hopefully that
+    // works for everybody...
 
     if (len == 1 && string[0] == CSI)
     {
@@ -959,8 +894,8 @@ gui_x11_key_hit_cb(
 	len = -3;
     }
 
-    /* Check for special keys.  Also do this when len == 1 (key has an ASCII
-     * value) to detect backspace, delete and keypad keys. */
+    // Check for special keys.  Also do this when len == 1 (key has an ASCII
+    // value) to detect backspace, delete and keypad keys.
     if (len == 0 || len == 1)
     {
 	for (i = 0; special_keys[i].key_sym != (KeySym)0; i++)
@@ -976,71 +911,75 @@ gui_x11_key_hit_cb(
 	}
     }
 
-    /* Unrecognised key is ignored. */
+    // Unrecognised key is ignored.
     if (len == 0)
 	goto theend;
 
-    /* Special keys (and a few others) may have modifiers.  Also when using a
-     * double-byte encoding (can't set the 8th bit). */
-    if (len == -3 || key_sym == XK_space || key_sym == XK_Tab
-	    || key_sym == XK_Return || key_sym == XK_Linefeed
-	    || key_sym == XK_Escape
-#ifdef FEAT_MBYTE
-	    || (enc_dbcs && len == 1 && (ev_press->state & Mod1Mask))
-#endif
-       )
+    // Handle modifiers.
+    modifiers = 0;
+    if (ev_press->state & ShiftMask)
+	modifiers |= MOD_MASK_SHIFT;
+    if (ev_press->state & ControlMask)
     {
-	modifiers = 0;
-	if (ev_press->state & ShiftMask)
-	    modifiers |= MOD_MASK_SHIFT;
-	if (ev_press->state & ControlMask)
-	    modifiers |= MOD_MASK_CTRL;
-	if (ev_press->state & Mod1Mask)
-	    modifiers |= MOD_MASK_ALT;
-	if (ev_press->state & Mod4Mask)
-	    modifiers |= MOD_MASK_META;
+	modifiers |= MOD_MASK_CTRL;
+	if (len == 1 && string[0] < 0x20)
+	    // Use the character before applyng CTRL.
+	    string[0] += 0x40;
+    }
+    if (ev_press->state & Mod1Mask)
+	modifiers |= MOD_MASK_ALT;
+    if (ev_press->state & Mod4Mask)
+	modifiers |= MOD_MASK_META;
 
-	/*
-	 * For some keys a shift modifier is translated into another key
-	 * code.
-	 */
-	if (len == -3)
-	    key = TO_SPECIAL(string[1], string[2]);
-	else
-	    key = string[0];
-	key = simplify_key(key, &modifiers);
-	if (key == CSI)
-	    key = K_CSI;
-	if (IS_SPECIAL(key))
-	{
-	    string[0] = CSI;
-	    string[1] = K_SECOND(key);
-	    string[2] = K_THIRD(key);
-	    len = 3;
-	}
-	else
-	{
-	    string[0] = key;
-	    len = 1;
-	}
+    /*
+     * For some keys a shift modifier is translated into another key
+     * code.
+     */
+    if (len == -3)
+	key = TO_SPECIAL(string[1], string[2]);
+    else
+    {
+	string[len] = NUL;
+	key = mb_ptr2char(string);
+    }
+    key = simplify_key(key, &modifiers);
+    if (key == CSI)
+	key = K_CSI;
+    if (IS_SPECIAL(key))
+    {
+	string[0] = CSI;
+	string[1] = K_SECOND(key);
+	string[2] = K_THIRD(key);
+	len = 3;
+    }
+    else
+    {
+	len = mb_char2bytes(key, string);
 
-	if (modifiers != 0)
-	{
-	    string2[0] = CSI;
-	    string2[1] = KS_MODIFIER;
-	    string2[2] = modifiers;
-	    add_to_input_buf(string2, 3);
-	}
+	// Remove the SHIFT modifier for keys where it's already included,
+	// e.g., '(', '!' and '*'.
+	if (!ASCII_ISALPHA(key) && key > 0x20 && key < 0x7f)
+	    modifiers &= ~MOD_MASK_SHIFT;
     }
 
-    if (len == 1 && ((string[0] == Ctrl_C && ctrl_c_interrupts)
-#ifdef UNIX
-	    || (intr_char != 0 && string[0] == intr_char)
-#endif
-	    ))
+    if (modifiers != 0)
     {
-	trash_input_buf();
-	got_int = TRUE;
+	string2[0] = CSI;
+	string2[1] = KS_MODIFIER;
+	string2[2] = modifiers;
+	add_to_input_buf(string2, 3);
+    }
+
+    // Check if the key interrupts.
+    {
+	int int_ch = check_for_interrupt(key, modifiers);
+
+	if (int_ch != NUL)
+	{
+	    trash_input_buf();
+	    string[0] = int_ch;
+	    len = 1;
+	}
     }
 
     add_to_input_buf(string, len);
@@ -1060,7 +999,7 @@ gui_x11_key_hit_cb(
     }
 #endif
 theend:
-    {}	    /* some compilers need a statement here */
+    {}	    // some compilers need a statement here
 #ifdef FEAT_XIM
     if (string_alloced)
 	XtFree((char *)string);
@@ -1085,7 +1024,7 @@ gui_x11_mouse_cb(
 
     if (event->type == MotionNotify)
     {
-	/* Get the latest position, avoids lagging behind on a drag. */
+	// Get the latest position, avoids lagging behind on a drag.
 	x = event->xmotion.x;
 	y = event->xmotion.y;
 	x_modifiers = event->xmotion.state;
@@ -1097,10 +1036,10 @@ gui_x11_mouse_cb(
 	 */
 	gui_mch_mousehide(FALSE);
 
-	if (button != MOUSE_DRAG)	/* just moving the rodent */
+	if (button != MOUSE_DRAG)	// just moving the rodent
 	{
 #ifdef FEAT_MENU
-	    if (dud)			/* moved in vimForm */
+	    if (dud)			// moved in vimForm
 		y -= gui.menu_height;
 #endif
 	    gui_mouse_moved(x, y);
@@ -1113,7 +1052,7 @@ gui_x11_mouse_cb(
 	y = event->xbutton.y;
 	if (event->type == ButtonPress)
 	{
-	    /* Handle multiple clicks */
+	    // Handle multiple clicks
 	    if (!timed_out)
 	    {
 		XtRemoveTimeOut(timer);
@@ -1124,7 +1063,7 @@ gui_x11_mouse_cb(
 			gui_x11_timer_cb, &timed_out);
 	    switch (event->xbutton.button)
 	    {
-		/* keep in sync with gui_gtk_x11.c */
+		// keep in sync with gui_gtk_x11.c
 		case Button1:	button = MOUSE_LEFT;	break;
 		case Button2:	button = MOUSE_MIDDLE;	break;
 		case Button3:	button = MOUSE_RIGHT;	break;
@@ -1135,13 +1074,13 @@ gui_x11_mouse_cb(
 		case 8:		button = MOUSE_X1;	break;
 		case 9:		button = MOUSE_X2;	break;
 		default:
-		    return;	/* Unknown button */
+		    return;	// Unknown button
 	    }
 	}
 	else if (event->type == ButtonRelease)
 	    button = MOUSE_RELEASE;
 	else
-	    return;	/* Unknown mouse event type */
+	    return;	// Unknown mouse event type
 
 	x_modifiers = event->xbutton.state;
 #if defined(FEAT_GUI_MOTIF) && defined(FEAT_MENU)
@@ -1154,7 +1093,7 @@ gui_x11_mouse_cb(
 	vim_modifiers |= MOUSE_SHIFT;
     if (x_modifiers & ControlMask)
 	vim_modifiers |= MOUSE_CTRL;
-    if (x_modifiers & Mod1Mask)	    /* Alt or Meta key */
+    if (x_modifiers & Mod1Mask)	    // Alt or Meta key
 	vim_modifiers |= MOUSE_ALT;
 
     gui_send_mouse_event(button, x, y, repeated_click, vim_modifiers);
@@ -1179,21 +1118,21 @@ gui_mch_prepare(int *argc, char **argv)
      * Move all the entries in argv which are relevant to X into gui_argv.
      */
     gui_argc = 0;
-    gui_argv = (char **)lalloc((long_u)(*argc * sizeof(char *)), FALSE);
+    gui_argv = LALLOC_MULT(char *, *argc);
     if (gui_argv == NULL)
 	return;
     gui_argv[gui_argc++] = argv[0];
     arg = 1;
     while (arg < *argc)
     {
-	/* Look for argv[arg] in cmdline_options[] table */
+	// Look for argv[arg] in cmdline_options[] table
 	for (i = 0; i < (int)XtNumber(cmdline_options); i++)
 	    if (strcmp(argv[arg], cmdline_options[i].option) == 0)
 		break;
 
 	if (i < (int)XtNumber(cmdline_options))
 	{
-	    /* Remember finding "-rv" or "-reverse" */
+	    // Remember finding "-rv" or "-reverse"
 	    if (strcmp("-rv", argv[arg]) == 0
 		    || strcmp("-reverse", argv[arg]) == 0)
 		found_reverse_arg = TRUE;
@@ -1202,7 +1141,7 @@ gui_mch_prepare(int *argc, char **argv)
 		    && arg + 1 < *argc)
 		font_argument = argv[arg + 1];
 
-	    /* Found match in table, so move it into gui_argv */
+	    // Found match in table, so move it into gui_argv
 	    gui_argv[gui_argc++] = argv[arg];
 	    if (--*argc > arg)
 	    {
@@ -1210,7 +1149,7 @@ gui_mch_prepare(int *argc, char **argv)
 						    * sizeof(char *));
 		if (cmdline_options[i].argKind != XrmoptionNoArg)
 		{
-		    /* Move the options argument as well */
+		    // Move the options argument as well
 		    gui_argv[gui_argc++] = argv[arg];
 		    if (--*argc > arg)
 			mch_memmove(&argv[arg], &argv[arg + 1], (*argc - arg)
@@ -1220,26 +1159,10 @@ gui_mch_prepare(int *argc, char **argv)
 	    argv[*argc] = NULL;
 	}
 	else
-#ifdef FEAT_SUN_WORKSHOP
-	    if (strcmp("-ws", argv[arg]) == 0)
-	{
-	    usingSunWorkShop++;
-	    p_acd = TRUE;
-	    gui.dofork = FALSE;	/* don't fork() when starting GUI */
-	    mch_memmove(&argv[arg], &argv[arg + 1],
-					    (--*argc - arg) * sizeof(char *));
-	    argv[*argc] = NULL;
-# ifdef WSDEBUG
-	    wsdebug_wait(WT_ENV | WT_WAIT | WT_STOP, "SPRO_GVIM_WAIT", 20);
-	    wsdebug_log_init("SPRO_GVIM_DEBUG", "SPRO_GVIM_DLEVEL");
-# endif
-	}
-	else
-#endif
 #ifdef FEAT_NETBEANS_INTG
 	    if (strncmp("-nb", argv[arg], 3) == 0)
 	{
-	    gui.dofork = FALSE;	/* don't fork() when starting GUI */
+	    gui.dofork = FALSE;	// don't fork() when starting GUI
 	    netbeansArg = argv[arg];
 	    mch_memmove(&argv[arg], &argv[arg + 1],
 					    (--*argc - arg) * sizeof(char *));
@@ -1277,10 +1200,21 @@ gui_mch_init_check(void)
 		cmdline_options, XtNumber(cmdline_options),
 		CARDINAL &gui_argc, gui_argv);
 
+# if defined(FEAT_FLOAT) && defined(LC_NUMERIC)
+    {
+	// The call to XtOpenDisplay() may have set the locale from the
+	// environment. Set LC_NUMERIC to "C" to make sure that strtod() uses a
+	// decimal point, not a comma.
+	char *p = setlocale(LC_NUMERIC, NULL);
+
+	if (p == NULL || strcmp(p, "C") != 0)
+	   setlocale(LC_NUMERIC, "C");
+    }
+# endif
     if (app_context == NULL || gui.dpy == NULL)
     {
 	gui.dying = TRUE;
-	EMSG(_(e_opendisp));
+	emsg(_(e_opendisp));
 	return FAIL;
     }
     return OK;
@@ -1292,8 +1226,6 @@ gui_mch_init_check(void)
  * Handle XSMP processing, de-registering the attachment upon error
  */
 static XtInputId _xsmp_xtinputid;
-
-static void local_xsmp_handle_requests(XtPointer c, int *s, XtInputId *i);
 
     static void
 local_xsmp_handle_requests(
@@ -1320,7 +1252,7 @@ gui_mch_init(void)
     unsigned	w, h;
 
 #if 0
-    /* Uncomment this to enable synchronous mode for debugging */
+    // Uncomment this to enable synchronous mode for debugging
     XSynchronize(gui.dpy, True);
 #endif
 
@@ -1339,29 +1271,28 @@ gui_mch_init(void)
      * Get the colors ourselves.  Using the automatic conversion doesn't
      * handle looking for approximate colors.
      */
-    /* NOTE: These next few lines are an exact duplicate of gui_athena.c's
-     * gui_mch_def_colors().  Why?
-     */
+    // NOTE: These next few lines are an exact duplicate of gui_athena.c's
+    // gui_mch_def_colors().  Why?
     gui.menu_fg_pixel = gui_get_color((char_u *)gui.rsrc_menu_fg_name);
     gui.menu_bg_pixel = gui_get_color((char_u *)gui.rsrc_menu_bg_name);
     gui.scroll_fg_pixel = gui_get_color((char_u *)gui.rsrc_scroll_fg_name);
     gui.scroll_bg_pixel = gui_get_color((char_u *)gui.rsrc_scroll_bg_name);
-#ifdef FEAT_BEVAL
+#ifdef FEAT_BEVAL_GUI
     gui.tooltip_fg_pixel = gui_get_color((char_u *)gui.rsrc_tooltip_fg_name);
     gui.tooltip_bg_pixel = gui_get_color((char_u *)gui.rsrc_tooltip_bg_name);
 #endif
 
 #if defined(FEAT_MENU) && defined(FEAT_GUI_ATHENA)
-    /* If the menu height was set, don't change it at runtime */
+    // If the menu height was set, don't change it at runtime
     if (gui.menu_height != MENU_DEFAULT_HEIGHT)
 	gui.menu_height_fixed = TRUE;
 #endif
 
-    /* Set default foreground and background colours */
+    // Set default foreground and background colours
     gui.norm_pixel = gui.def_norm_pixel;
     gui.back_pixel = gui.def_back_pixel;
 
-    /* Check if reverse video needs to be applied (on Sun it's done by X) */
+    // Check if reverse video needs to be applied (on Sun it's done by X)
     if (gui.rsrc_rev_video && gui_get_lightness(gui.back_pixel)
 					  > gui_get_lightness(gui.norm_pixel))
     {
@@ -1371,8 +1302,8 @@ gui_mch_init(void)
 	gui.def_back_pixel = gui.back_pixel;
     }
 
-    /* Get the colors from the "Normal", "Tooltip", "Scrollbar" and "Menu"
-     * group (set in syntax.c or in a vimrc file) */
+    // Get the colors from the "Normal", "Tooltip", "Scrollbar" and "Menu"
+    // group (set in syntax.c or in a vimrc file)
     set_normal_colors();
 
     /*
@@ -1404,8 +1335,8 @@ gui_mch_init(void)
     if (gui_win_x != -1 && gui_win_y != -1)
 	gui_mch_set_winpos(gui_win_x, gui_win_y);
 
-    /* Now adapt the supplied(?) geometry-settings */
-    /* Added by Kjetil Jacobsen <kjetilja@stud.cs.uit.no> */
+    // Now adapt the supplied(?) geometry-settings
+    // Added by Kjetil Jacobsen <kjetilja@stud.cs.uit.no>
     if (gui.geom != NULL && *gui.geom != NUL)
     {
 	mask = XParseGeometry((char *)gui.geom, &x, &y, &w, &h);
@@ -1454,10 +1385,10 @@ gui_mch_init(void)
 		    vim_mask_icon_height));
 	XtSetValues(vimShell, arg, (Cardinal)2);
 #else
-/* Use Pixmaps, looking much nicer. */
+// Use Pixmaps, looking much nicer.
 
-/* If you get an error message here, you still need to unpack the runtime
- * archive! */
+// If you get an error message here, you still need to unpack the runtime
+// archive!
 # ifdef magick
 #  undef magick
 # endif
@@ -1508,7 +1439,7 @@ gui_mch_init(void)
 
     attr.valuemask = 0L;
     attr.valuemask = XpmCloseness | XpmReturnPixels | XpmColormap | XpmDepth;
-    attr.closeness = 65535;	/* accuracy isn't crucial */
+    attr.closeness = 65535;	// accuracy isn't crucial
     attr.colormap = cmap;
     attr.depth = DefaultDepthOfScreen(scr);
 
@@ -1528,14 +1459,9 @@ gui_mch_init(void)
     }
 
     if (gui.color_approx)
-	EMSG(_("Vim E458: Cannot allocate colormap entry, some colors may be incorrect"));
+	emsg(_("Vim E458: Cannot allocate colormap entry, some colors may be incorrect"));
 
-#ifdef FEAT_SUN_WORKSHOP
-    if (usingSunWorkShop)
-	workshop_connect(app_context);
-#endif
-
-#ifdef FEAT_BEVAL
+#ifdef FEAT_BEVAL_GUI
     gui_init_tooltip_font();
 #endif
 #ifdef FEAT_MENU
@@ -1543,7 +1469,7 @@ gui_mch_init(void)
 #endif
 
 #ifdef USE_XSMP
-    /* Attach listener on ICE connection */
+    // Attach listener on ICE connection
     if (-1 != xsmp_icefd)
 	_xsmp_xtinputid = XtAppAddInput(app_context, xsmp_icefd,
 		(XtPointer)XtInputReadMask, local_xsmp_handle_requests, NULL);
@@ -1562,8 +1488,7 @@ gui_mch_uninit(void)
     XtCloseDisplay(gui.dpy);
     gui.dpy = NULL;
     vimShell = (Widget)0;
-    vim_free(gui_argv);
-    gui_argv = NULL;
+    VIM_CLEAR(gui_argv);
 }
 
 /*
@@ -1602,7 +1527,7 @@ gui_mch_new_colors(void)
     int
 gui_mch_open(void)
 {
-    /* Actually open the window */
+    // Actually open the window
     XtRealizeWidget(vimShell);
     XtManageChild(XtNameToWidget(vimShell, "*vimForm"));
 
@@ -1632,7 +1557,7 @@ gui_mch_open(void)
 #ifdef FEAT_CLIENTSERVER
     if (serverName == NULL && serverDelayedStartName != NULL)
     {
-	/* This is a :gui command in a plain vim with no previous server */
+	// This is a :gui command in a plain vim with no previous server
 	commWindow = XtWindow(vimShell);
 	(void)serverRegisterName(gui.dpy, serverDelayedStartName);
     }
@@ -1651,7 +1576,7 @@ gui_mch_open(void)
 
 
 #if defined(FEAT_MENU) && defined(FEAT_GUI_ATHENA)
-    /* The Athena GUI needs this again after opening the window */
+    // The Athena GUI needs this again after opening the window
     gui_position_menu();
 # ifdef FEAT_TOOLBAR
     gui_mch_set_toolbar_pos(0, gui.menu_height, gui.menu_width,
@@ -1659,24 +1584,18 @@ gui_mch_open(void)
 # endif
 #endif
 
-    /* Get the colors for the highlight groups (gui_check_colors() might have
-     * changed them) */
-    highlight_gui_started();		/* re-init colors and fonts */
+    // Get the colors for the highlight groups (gui_check_colors() might have
+    // changed them)
+    highlight_gui_started();		// re-init colors and fonts
 
-#ifdef FEAT_HANGULIN
-    hangul_keyboard_set();
-#endif
 #ifdef FEAT_XIM
     xim_init();
-#endif
-#ifdef FEAT_SUN_WORKSHOP
-    workshop_postinit();
 #endif
 
     return OK;
 }
 
-#if defined(FEAT_BEVAL) || defined(PROTO)
+#if defined(FEAT_BEVAL_GUI) || defined(PROTO)
 /*
  * Convert the tooltip fontset name to an XFontSet.
  */
@@ -1692,13 +1611,13 @@ gui_init_tooltip_font(void)
 
     if (XtConvertAndStore(vimShell, XtRString, &from, XtRFontSet, &to) == False)
     {
-	/* Failed. What to do? */
+	// Failed. What to do?
     }
 }
 #endif
 
 #if defined(FEAT_MENU) || defined(PROTO)
-/* Convert the menu font/fontset name to an XFontStruct/XFontset */
+// Convert the menu font/fontset name to an XFontStruct/XFontset
     void
 gui_init_menu_font(void)
 {
@@ -1712,7 +1631,7 @@ gui_init_menu_font(void)
 
     if (XtConvertAndStore(vimShell, XtRString, &from, XtRFontSet, &to) == False)
     {
-	/* Failed. What to do? */
+	// Failed. What to do?
     }
 #else
     from.addr = (char *)gui.rsrc_menu_font_name;
@@ -1722,7 +1641,7 @@ gui_init_menu_font(void)
 
     if (XtConvertAndStore(vimShell, XtRString, &from, XtRFontStruct, &to) == False)
     {
-	/* Failed. What to do? */
+	// Failed. What to do?
     }
 #endif
 }
@@ -1732,12 +1651,11 @@ gui_init_menu_font(void)
 gui_mch_exit(int rc UNUSED)
 {
 #if 0
-    /* Lesstif gives an error message here, and so does Solaris.  The man page
-     * says that this isn't needed when exiting, so just skip it. */
+    // Lesstif gives an error message here, and so does Solaris.  The man page
+    // says that this isn't needed when exiting, so just skip it.
     XtCloseDisplay(gui.dpy);
 #endif
-    vim_free(gui_argv);
-    gui_argv = NULL;
+    VIM_CLEAR(gui_argv);
 }
 
 /*
@@ -1828,8 +1746,8 @@ gui_mch_init_font(
 #endif
 
 #ifdef FEAT_GUI_MOTIF
-    /* A font name equal "*" is indicating, that we should activate the font
-     * selection dialogue to get a new font name. So let us do it here. */
+    // A font name equal "*" is indicating, that we should activate the font
+    // selection dialogue to get a new font name. So let us do it here.
     if (font_name != NULL && STRCMP(font_name, "*") == 0)
 	font_name = gui_xm_select_font(hl_get_font_name());
 #endif
@@ -1837,8 +1755,8 @@ gui_mch_init_font(
 #ifdef FEAT_XFONTSET
     if (do_fontset)
     {
-	/* If 'guifontset' is set, VIM treats all font specifications as if
-	 * they were fontsets, and 'guifontset' becomes the default. */
+	// If 'guifontset' is set, VIM treats all font specifications as if
+	// they were fontsets, and 'guifontset' becomes the default.
 	if (font_name != NULL)
 	{
 	    fontset = (XFontSet)gui_mch_get_fontset(font_name, FALSE, TRUE);
@@ -1916,9 +1834,9 @@ gui_mch_init_font(
     }
     else
     {
-	/* When not using the font specified by the resources, also don't use
-	 * the bold/italic fonts, otherwise setting 'guifont' will look very
-	 * strange. */
+	// When not using the font specified by the resources, also don't use
+	// the bold/italic fonts, otherwise setting 'guifont' will look very
+	// strange.
 	if (gui.bold_font != NOFONT)
 	{
 	    XFreeFont(gui.dpy, (XFontStruct *)gui.bold_font);
@@ -1951,7 +1869,7 @@ gui_mch_get_font(char_u *name, int giveErrorIfMissing)
 {
     XFontStruct	*font;
 
-    if (!gui.in_use || name == NULL)    /* can't do this when GUI not running */
+    if (!gui.in_use || name == NULL)	// can't do this when GUI not running
 	return NOFONT;
 
     font = XLoadQueryFont(gui.dpy, (char *)name);
@@ -1959,7 +1877,7 @@ gui_mch_get_font(char_u *name, int giveErrorIfMissing)
     if (font == NULL)
     {
 	if (giveErrorIfMissing)
-	    EMSG2(_(e_font), name);
+	    semsg(_(e_font), name);
 	return NOFONT;
     }
 
@@ -1983,7 +1901,7 @@ gui_mch_get_font(char_u *name, int giveErrorIfMissing)
 
     if (font->max_bounds.width != font->min_bounds.width)
     {
-	EMSG2(_(e_fontwidth), name);
+	semsg(_(e_fontwidth), name);
 	XFreeFont(gui.dpy, font);
 	return NOFONT;
     }
@@ -1993,14 +1911,40 @@ gui_mch_get_font(char_u *name, int giveErrorIfMissing)
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Return the name of font "font" in allocated memory.
- * Don't know how to get the actual name, thus use the provided name.
  */
     char_u *
-gui_mch_get_fontname(GuiFont font UNUSED, char_u *name)
+gui_mch_get_fontname(GuiFont font, char_u *name)
 {
-    if (name == NULL)
-	return NULL;
-    return vim_strsave(name);
+    char_u *ret = NULL;
+
+    if (name != NULL && font == NULL)
+    {
+	// In this case, there's no way other than doing this.
+	ret = vim_strsave(name);
+    }
+    else if (font != NULL)
+    {
+	// In this case, try to retrieve the XLFD corresponding to 'font'->fid;
+	// if failed, use 'name' unless it's NULL.
+	unsigned long value = 0L;
+
+	if (XGetFontProperty(font, XA_FONT, &value))
+	{
+	    char *xa_font_name = NULL;
+
+	    xa_font_name = XGetAtomName(gui.dpy, value);
+	    if (xa_font_name != NULL)
+	    {
+		ret = vim_strsave((char_u *)xa_font_name);
+		XFree(xa_font_name);
+	    }
+	    else if (name != NULL)
+		ret = vim_strsave(name);
+	}
+	else if (name != NULL)
+	    ret = vim_strsave(name);
+    }
+    return ret;
 }
 #endif
 
@@ -2108,9 +2052,9 @@ gui_mch_get_fontset(
 
 	if (giveErrorIfMissing)
 	{
-	    EMSG2(_("E250: Fonts for the following charsets are missing in fontset %s:"), name);
+	    semsg(_("E250: Fonts for the following charsets are missing in fontset %s:"), name);
 	    for (i = 0; i < num_missing; i++)
-		EMSG2("%s", missing[i]);
+		semsg("%s", missing[i]);
 	}
 	XFreeStringList(missing);
     }
@@ -2118,7 +2062,7 @@ gui_mch_get_fontset(
     if (fontset == NULL)
     {
 	if (giveErrorIfMissing)
-	    EMSG2(_(e_fontset), name);
+	    semsg(_(e_fontset), name);
 	return NOFONTSET;
     }
 
@@ -2150,12 +2094,12 @@ check_fontset_sanity(XFontSet fs)
     {
 	if (xfs[i]->max_bounds.width != xfs[i]->min_bounds.width)
 	{
-	    EMSG2(_("E252: Fontset name: %s"), base_name);
-	    EMSG2(_("Font '%s' is not fixed-width"), font_name[i]);
+	    semsg(_("E252: Fontset name: %s"), base_name);
+	    semsg(_("Font '%s' is not fixed-width"), font_name[i]);
 	    return FAIL;
 	}
     }
-    /* scan base font width */
+    // scan base font width
     min_width = 32767;
     for (i = 0; i < fn; i++)
     {
@@ -2170,16 +2114,17 @@ check_fontset_sanity(XFontSet fs)
 	if (	   xfs[i]->max_bounds.width != 2 * min_width
 		&& xfs[i]->max_bounds.width != min_width)
 	{
-	    EMSG2(_("E253: Fontset name: %s"), base_name);
-	    EMSG2(_("Font0: %s"), font_name[min_font_idx]);
-	    EMSG2(_("Font1: %s"), font_name[i]);
-	    EMSGN(_("Font%ld width is not twice that of font0"), i);
-	    EMSGN(_("Font0 width: %ld"), xfs[min_font_idx]->max_bounds.width);
-	    EMSGN(_("Font1 width: %ld"), xfs[i]->max_bounds.width);
+	    semsg(_("E253: Fontset name: %s"), base_name);
+	    semsg(_("Font0: %s"), font_name[min_font_idx]);
+	    semsg(_("Font%d: %s"), i, font_name[i]);
+	    semsg(_("Font%d width is not twice that of font0"), i);
+	    semsg(_("Font0 width: %d"),
+				     (int)xfs[min_font_idx]->max_bounds.width);
+	    semsg(_("Font%d width: %d"), i, (int)xfs[i]->max_bounds.width);
 	    return FAIL;
 	}
     }
-    /* it seems ok. Good Luck!! */
+    // it seems ok. Good Luck!!
     return OK;
 }
 
@@ -2215,7 +2160,8 @@ fontset_height2(XFontSet fs)
 }
 #endif
 
-/* NOT USED YET
+#if 0
+// NOT USED YET
     static int
 fontset_descent(XFontSet fs)
 {
@@ -2224,7 +2170,7 @@ fontset_descent(XFontSet fs)
     extents = XExtentsOfFontSet (fs);
     return extents->max_logical_extent.height + extents->max_logical_extent.y;
 }
-*/
+#endif
 
     static int
 fontset_ascent(XFontSet fs)
@@ -2235,178 +2181,59 @@ fontset_ascent(XFontSet fs)
     return -extents->max_logical_extent.y;
 }
 
-#endif /* FEAT_XFONTSET */
+#endif // FEAT_XFONTSET
 
 /*
  * Return the Pixel value (color) for the given color name.
  * Return INVALCOLOR for error.
  */
     guicolor_T
-gui_mch_get_color(char_u *reqname)
+gui_mch_get_color(char_u *name)
 {
-    int		i;
-    char_u	*name = reqname;
-    Colormap	colormap;
-    XColor      color;
-    static char *(vimnames[][2]) =
-    {
-	/* A number of colors that some X11 systems don't have */
-	{"LightRed",	"#FFBBBB"},
-	{"LightGreen",	"#88FF88"},
-	{"LightMagenta","#FFBBFF"},
-	{"DarkCyan",	"#008888"},
-	{"DarkBlue",	"#0000BB"},
-	{"DarkRed",	"#BB0000"},
-	{"DarkMagenta",	"#BB00BB"},
-	{"DarkGrey",	"#BBBBBB"},
-	{"DarkYellow",	"#BBBB00"},
-	{"Gray10",	"#1A1A1A"},
-	{"Grey10",	"#1A1A1A"},
-	{"Gray20",	"#333333"},
-	{"Grey20",	"#333333"},
-	{"Gray30",	"#4D4D4D"},
-	{"Grey30",	"#4D4D4D"},
-	{"Gray40",	"#666666"},
-	{"Grey40",	"#666666"},
-	{"Gray50",	"#7F7F7F"},
-	{"Grey50",	"#7F7F7F"},
-	{"Gray60",	"#999999"},
-	{"Grey60",	"#999999"},
-	{"Gray70",	"#B3B3B3"},
-	{"Grey70",	"#B3B3B3"},
-	{"Gray80",	"#CCCCCC"},
-	{"Grey80",	"#CCCCCC"},
-	{"Gray90",	"#E5E5E5"},
-	{"Grey90",	"#E5E5E5"},
-	{NULL, NULL}
-    };
+    guicolor_T	requested;
 
-    /* can't do this when GUI not running */
-    if (!gui.in_use || *reqname == NUL)
+    // can't do this when GUI not running
+    if (!gui.in_use || name == NULL || *name == NUL)
 	return INVALCOLOR;
 
-    colormap = DefaultColormap(gui.dpy, XDefaultScreen(gui.dpy));
+    requested = gui_get_color_cmn(name);
+    if (requested == INVALCOLOR)
+	return INVALCOLOR;
 
-    /* Do this twice if the name isn't recognized. */
-    while (name != NULL)
-    {
-	i = XParseColor(gui.dpy, colormap, (char *)name, &color);
-
-#if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
-	if (i == 0)
-	{
-	    char *old;
-
-	    /* The X11 system is trying to resolve named colors only by names
-	     * corresponding to the current locale language.  But Vim scripts
-	     * usually contain the English color names.  Therefore we have to
-	     * try a second time here with the native "C" locale set.
-	     * Hopefully, restoring the old locale this way works on all
-	     * systems...
-	     */
-	    old = setlocale(LC_ALL, NULL);
-	    if (old != NULL && STRCMP(old, "C") != 0)
-	    {
-		old = (char *)vim_strsave((char_u *)old);
-		setlocale(LC_ALL, "C");
-		i = XParseColor(gui.dpy, colormap, (char *)name, &color);
-		setlocale(LC_ALL, old);
-		vim_free(old);
-	    }
-	}
-#endif
-	if (i != 0 && (XAllocColor(gui.dpy, colormap, &color) != 0
-		    || find_closest_color(colormap, &color) == OK))
-	    return (guicolor_T)color.pixel;
-
-	/* check for a few builtin names */
-	for (i = 0; ; ++i)
-	{
-	    if (vimnames[i][0] == NULL)
-	    {
-		name = NULL;
-		break;
-	    }
-	    if (STRICMP(name, vimnames[i][0]) == 0)
-	    {
-		name = (char_u *)vimnames[i][1];
-		break;
-	    }
-	}
-    }
-
-    return INVALCOLOR;
+    return gui_mch_get_rgb_color(
+	    (requested & 0xff0000) >> 16,
+	    (requested & 0xff00) >> 8,
+	    requested & 0xff);
 }
 
 /*
- * Find closest color for "colorPtr" in "colormap".  set "colorPtr" to the
- * resulting color.
- * Based on a similar function in TCL.
- * Return FAIL if not able to find or allocate a color.
+ * Return the Pixel value (color) for the given RGB values.
+ * Return INVALCOLOR for error.
  */
-    static int
-find_closest_color(Colormap colormap, XColor *colorPtr)
+    guicolor_T
+gui_mch_get_rgb_color(int r, int g, int b)
 {
-    double	tmp, distance, closestDistance;
-    int		i, closest, numFound, cmap_size;
-    XColor	*colortable;
-    XVisualInfo	template, *visInfoPtr;
+    XColor	available;
+    Colormap	colormap;
 
-    template.visualid = XVisualIDFromVisual(DefaultVisual(gui.dpy,
-						    XDefaultScreen(gui.dpy)));
-    visInfoPtr = XGetVisualInfo(gui.dpy, (long)VisualIDMask,
-							&template, &numFound);
-    if (numFound < 1)
-	/* FindClosestColor couldn't lookup visual */
-	return FAIL;
+#if 0
+// Using XParseColor() is very slow, put rgb in XColor directly.
 
-    cmap_size = visInfoPtr->colormap_size;
-    XFree((char *)visInfoPtr);
-    colortable = (XColor *)alloc((unsigned)(cmap_size * sizeof(XColor)));
-    if (!colortable)
-	return FAIL;  /* out of memory */
+    char	spec[8]; // space enough to hold "#RRGGBB"
+    vim_snprintf(spec, sizeof(spec), "#%.2x%.2x%.2x", r, g, b);
+    if (XParseColor(gui.dpy, colormap, (char *)spec, &available) != 0
+	    && XAllocColor(gui.dpy, colormap, &available) != 0)
+	return (guicolor_T)available.pixel;
+#endif
+    colormap = DefaultColormap(gui.dpy, DefaultScreen(gui.dpy));
+    CLEAR_FIELD(available);
+    available.red = r << 8;
+    available.green = g << 8;
+    available.blue = b << 8;
+    if (XAllocColor(gui.dpy, colormap, &available) != 0)
+	return (guicolor_T)available.pixel;
 
-    for (i = 0; i  < cmap_size; i++)
-	colortable[i].pixel = (unsigned long)i;
-    XQueryColors (gui.dpy, colormap, colortable, cmap_size);
-
-    /*
-     * Find the color that best approximates the desired one, then
-     * try to allocate that color.  If that fails, it must mean that
-     * the color was read-write (so we can't use it, since it's owner
-     * might change it) or else it was already freed.  Try again,
-     * over and over again, until something succeeds.
-     */
-    closestDistance = 1e30;
-    closest = 0;
-    for (i = 0; i < cmap_size; i++)
-    {
-	/*
-	 * Use Euclidean distance in RGB space, weighted by Y (of YIQ)
-	 * as the objective function;  this accounts for differences
-	 * in the color sensitivity of the eye.
-	 */
-	tmp = .30 * (((int)colorPtr->red) - (int)colortable[i].red);
-	distance = tmp * tmp;
-	tmp = .61 * (((int)colorPtr->green) - (int)colortable[i].green);
-	distance += tmp * tmp;
-	tmp = .11 * (((int)colorPtr->blue) - (int)colortable[i].blue);
-	distance += tmp * tmp;
-	if (distance < closestDistance)
-	{
-	    closest = i;
-	    closestDistance = distance;
-	}
-    }
-
-    if (XAllocColor(gui.dpy, colormap, &colortable[closest]) != 0)
-    {
-	gui.color_approx = TRUE;
-	*colorPtr = colortable[closest];
-    }
-
-    vim_free(colortable);
-    return OK;
+    return INVALCOLOR;
 }
 
 /*
@@ -2487,7 +2314,6 @@ gui_mch_draw_string(
     int		flags)
 {
     int			cells = len;
-#ifdef FEAT_MBYTE
     static void		*buf = NULL;
     static int		buflen = 0;
     char_u		*p;
@@ -2496,9 +2322,9 @@ gui_mch_draw_string(
 
     if (enc_utf8)
     {
-	/* Convert UTF-8 byte sequence to 16 bit characters for the X
-	 * functions.  Need a buffer for the 16 bit characters.  Keep it
-	 * between calls, because allocating it each time is slow. */
+	// Convert UTF-8 byte sequence to 16 bit characters for the X
+	// functions.  Need a buffer for the 16 bit characters.  Keep it
+	// between calls, because allocating it each time is slow.
 	if (buflen < len)
 	{
 	    XtFree((char *)buf);
@@ -2511,20 +2337,20 @@ gui_mch_draw_string(
 	while (p < s + len)
 	{
 	    c = utf_ptr2char(p);
-# ifdef FEAT_XFONTSET
+#ifdef FEAT_XFONTSET
 	    if (current_fontset != NULL)
 	    {
-#  ifdef SMALL_WCHAR_T
+# ifdef SMALL_WCHAR_T
 		if (c >= 0x10000)
-		    c = 0xbf;		/* show chars > 0xffff as ? */
-#  endif
+		    c = 0xbf;		// show chars > 0xffff as ?
+# endif
 		((wchar_t *)buf)[wlen] = c;
 	    }
 	    else
-# endif
+#endif
 	    {
 		if (c >= 0x10000)
-		    c = 0xbf;		/* show chars > 0xffff as ? */
+		    c = 0xbf;		// show chars > 0xffff as ?
 		((XChar2b *)buf)[wlen].byte1 = (unsigned)c >> 8;
 		((XChar2b *)buf)[wlen].byte2 = c;
 	    }
@@ -2543,14 +2369,12 @@ gui_mch_draw_string(
 	}
     }
 
-#endif
-
 #ifdef FEAT_XFONTSET
     if (current_fontset != NULL)
     {
-	/* Setup a clip rectangle to avoid spilling over in the next or
-	 * previous line.  This is apparently needed for some fonts which are
-	 * used in a fontset. */
+	// Setup a clip rectangle to avoid spilling over in the next or
+	// previous line.  This is apparently needed for some fonts which are
+	// used in a fontset.
 	XRectangle	clip;
 
 	clip.x = 0;
@@ -2564,12 +2388,10 @@ gui_mch_draw_string(
 
     if (flags & DRAW_TRANSP)
     {
-#ifdef FEAT_MBYTE
 	if (enc_utf8)
 	    XDrawString16(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), buf, wlen);
 	else
-#endif
 	    XDrawString(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), (char *)s, len);
     }
@@ -2584,56 +2406,60 @@ gui_mch_draw_string(
 		FILL_Y(row), gui.char_width * cells, gui.char_height);
 	XSetForeground(gui.dpy, gui.text_gc, prev_fg_color);
 
-#ifdef FEAT_MBYTE
 	if (enc_utf8)
 	    XDrawString16(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), buf, wlen);
 	else
-#endif
 	    XDrawString(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), (char *)s, len);
     }
     else
     {
-	/* XmbDrawImageString has bug, don't use it for fontset. */
-#ifdef FEAT_MBYTE
+	// XmbDrawImageString has bug, don't use it for fontset.
 	if (enc_utf8)
 	    XDrawImageString16(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), buf, wlen);
 	else
-#endif
 	    XDrawImageString(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
 		    TEXT_Y(row), (char *)s, len);
     }
 
-    /* Bold trick: draw the text again with a one-pixel offset. */
+    // Bold trick: draw the text again with a one-pixel offset.
     if (flags & DRAW_BOLD)
     {
-#ifdef FEAT_MBYTE
 	if (enc_utf8)
 	    XDrawString16(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col) + 1,
 		    TEXT_Y(row), buf, wlen);
 	else
-#endif
 	    XDrawString(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col) + 1,
 		    TEXT_Y(row), (char *)s, len);
     }
 
-    /* Undercurl: draw curl at the bottom of the character cell. */
+    // Undercurl: draw curl at the bottom of the character cell.
     if (flags & DRAW_UNDERC)
 	draw_curl(row, col, cells);
 
-    /* Underline: draw a line at the bottom of the character cell. */
+    // Underline: draw a line at the bottom of the character cell.
     if (flags & DRAW_UNDERL)
     {
 	int	y = FILL_Y(row + 1) - 1;
 
-	/* When p_linespace is 0, overwrite the bottom row of pixels.
-	 * Otherwise put the line just below the character. */
+	// When p_linespace is 0, overwrite the bottom row of pixels.
+	// Otherwise put the line just below the character.
 	if (p_linespace > 1)
 	    y -= p_linespace - 1;
 	XDrawLine(gui.dpy, gui.wid, gui.text_gc, FILL_X(col),
 		y, FILL_X(col + cells) - 1, y);
+    }
+
+    if (flags & DRAW_STRIKE)
+    {
+	int	y = FILL_Y(row + 1) - gui.char_height/2;
+
+	XSetForeground(gui.dpy, gui.text_gc, prev_sp_color);
+	XDrawLine(gui.dpy, gui.wid, gui.text_gc, FILL_X(col),
+		y, FILL_X(col + cells) - 1, y);
+	XSetForeground(gui.dpy, gui.text_gc, prev_fg_color);
     }
 
 #ifdef FEAT_XFONTSET
@@ -2677,12 +2503,12 @@ gui_mch_beep(void)
     void
 gui_mch_flash(int msec)
 {
-    /* Do a visual beep by reversing the foreground and background colors */
+    // Do a visual beep by reversing the foreground and background colors
     XFillRectangle(gui.dpy, gui.wid, gui.invert_gc, 0, 0,
 	    FILL_X((int)Columns) + gui.border_offset,
 	    FILL_Y((int)Rows) + gui.border_offset);
     XSync(gui.dpy, False);
-    ui_delay((long)msec, TRUE);	/* wait for a few msec */
+    ui_delay((long)msec, TRUE);	// wait for a few msec
     XFillRectangle(gui.dpy, gui.wid, gui.invert_gc, 0, 0,
 	    FILL_X((int)Columns) + gui.border_offset,
 	    FILL_Y((int)Rows) + gui.border_offset);
@@ -2730,10 +2556,8 @@ gui_mch_draw_hollow_cursor(guicolor_T color)
 {
     int		w = 1;
 
-#ifdef FEAT_MBYTE
     if (mb_lefthalve(gui.row, gui.col))
 	w = 2;
-#endif
     gui_mch_set_fg_color(color);
     XDrawRectangle(gui.dpy, gui.wid, gui.text_gc, FILL_X(gui.col),
 	    FILL_Y(gui.row), w * gui.char_width - 1, gui.char_height - 1);
@@ -2750,7 +2574,7 @@ gui_mch_draw_part_cursor(int w, int h, guicolor_T color)
 
     XFillRectangle(gui.dpy, gui.wid, gui.text_gc,
 #ifdef FEAT_RIGHTLEFT
-	    /* vertical line should be on the right of current point */
+	    // vertical line should be on the right of current point
 	    CURSOR_BAR_RIGHT ? FILL_X(gui.col + 1) - w :
 #endif
 		FILL_X(gui.col),
@@ -2792,7 +2616,8 @@ gui_mch_update(void)
     int
 gui_mch_wait_for_chars(long wtime)
 {
-    int		    focus;
+    int	    focus;
+    int	    retval = FAIL;
 
     /*
      * Make this static, in case gui_x11_timer_cb is called after leaving
@@ -2801,34 +2626,48 @@ gui_mch_wait_for_chars(long wtime)
     static int	    timed_out;
     XtIntervalId    timer = (XtIntervalId)0;
     XtInputMask	    desired;
+#ifdef FEAT_JOB_CHANNEL
+    XtIntervalId    channel_timer = (XtIntervalId)0;
+#endif
 
     timed_out = FALSE;
 
-    if (wtime > 0)
-	timer = XtAppAddTimeOut(app_context, (long_u)wtime, gui_x11_timer_cb,
-								  &timed_out);
+    if (wtime >= 0)
+	timer = XtAppAddTimeOut(app_context,
+				(long_u)(wtime == 0 ? 1L : wtime),
+						 gui_x11_timer_cb, &timed_out);
+#ifdef FEAT_JOB_CHANNEL
+    // If there is a channel with the keep_open flag we need to poll for input
+    // on them.
+    if (channel_any_keep_open())
+	channel_timer = XtAppAddTimeOut(app_context, (long_u)20,
+				   channel_poll_cb, (XtPointer)&channel_timer);
+#endif
 
     focus = gui.in_focus;
-#ifdef ALT_X_INPUT
-    if (suppress_alternate_input)
-	desired = (XtIMXEvent | XtIMTimer);
-    else
-#endif
-	desired = (XtIMAll);
+    desired = (XtIMAll);
     while (!timed_out)
     {
-	/* Stop or start blinking when focus changes */
+	// Stop or start blinking when focus changes
 	if (gui.in_focus != focus)
 	{
 	    if (gui.in_focus)
 		gui_mch_start_blink();
 	    else
-		gui_mch_stop_blink();
+		gui_mch_stop_blink(TRUE);
 	    focus = gui.in_focus;
 	}
 
 #ifdef MESSAGE_QUEUE
+# ifdef FEAT_TIMERS
+	did_add_timer = FALSE;
+# endif
 	parse_queued_messages();
+# ifdef FEAT_TIMERS
+	if (did_add_timer)
+	    // Need to recompute the waiting time.
+	    break;
+# endif
 #endif
 
 	/*
@@ -2843,19 +2682,28 @@ gui_mch_wait_for_chars(long wtime)
 
 	if (input_available())
 	{
-	    if (timer != (XtIntervalId)0 && !timed_out)
-		XtRemoveTimeOut(timer);
-	    return OK;
+	    retval = OK;
+	    break;
 	}
     }
-    return FAIL;
+
+    if (timer != (XtIntervalId)0 && !timed_out)
+	XtRemoveTimeOut(timer);
+#ifdef FEAT_JOB_CHANNEL
+    if (channel_timer != (XtIntervalId)0)
+	XtRemoveTimeOut(channel_timer);
+#endif
+
+    return retval;
 }
 
 /*
  * Output routines.
  */
 
-/* Flush any output to the screen */
+/*
+ * Flush any output to the screen
+ */
     void
 gui_mch_flush(void)
 {
@@ -2877,8 +2725,8 @@ gui_mch_clear_block(
 
     x = FILL_X(col1);
 
-    /* Clear one extra pixel at the far right, for when bold characters have
-     * spilled over to the next column. */
+    // Clear one extra pixel at the far right, for when bold characters have
+    // spilled over to the next column.
     XFillRectangle(gui.dpy, gui.wid, gui.back_gc, x, FILL_Y(row1),
 	    (col2 - col1 + 1) * gui.char_width + (col2 == Columns - 1),
 	    (row2 - row1 + 1) * gui.char_height);
@@ -2898,10 +2746,10 @@ gui_mch_clear_all(void)
 gui_mch_delete_lines(int row, int num_lines)
 {
     if (gui.visibility == VisibilityFullyObscured)
-	return;	    /* Can't see the window */
+	return;	    // Can't see the window
 
-    /* copy one extra pixel at the far right, for when bold has spilled
-     * over */
+    // copy one extra pixel at the far right, for when bold has spilled
+    // over
     XCopyArea(gui.dpy, gui.wid, gui.wid, gui.text_gc,
 	FILL_X(gui.scroll_region_left), FILL_Y(row + num_lines),
 	gui.char_width * (gui.scroll_region_right - gui.scroll_region_left + 1)
@@ -2923,10 +2771,10 @@ gui_mch_delete_lines(int row, int num_lines)
 gui_mch_insert_lines(int row, int num_lines)
 {
     if (gui.visibility == VisibilityFullyObscured)
-	return;	    /* Can't see the window */
+	return;	    // Can't see the window
 
-    /* copy one extra pixel at the far right, for when bold has spilled
-     * over */
+    // copy one extra pixel at the far right, for when bold has spilled
+    // over
     XCopyArea(gui.dpy, gui.wid, gui.wid, gui.text_gc,
 	FILL_X(gui.scroll_region_left), FILL_Y(row),
 	gui.char_width * (gui.scroll_region_right - gui.scroll_region_left + 1)
@@ -2953,18 +2801,18 @@ gui_x11_check_copy_area(void)
 
     XFlush(gui.dpy);
 
-    /* Wait to check whether the scroll worked or not */
+    // Wait to check whether the scroll worked or not
     for (;;)
     {
 	if (XCheckTypedEvent(gui.dpy, NoExpose, &event))
-	    return;	/* The scroll worked. */
+	    return;	// The scroll worked.
 
 	if (XCheckTypedEvent(gui.dpy, GraphicsExpose, &event))
 	{
 	    gevent = (XGraphicsExposeEvent *)&event;
 	    gui_redraw(gevent->x, gevent->y, gevent->width, gevent->height);
 	    if (gevent->count == 0)
-		return;		/* This was the last expose event */
+		return;		// This was the last expose event
 	}
 	XSync(gui.dpy, False);
     }
@@ -2975,26 +2823,26 @@ gui_x11_check_copy_area(void)
  */
 
     void
-clip_mch_lose_selection(VimClipboard *cbd)
+clip_mch_lose_selection(Clipboard_T *cbd)
 {
     clip_x11_lose_selection(vimShell, cbd);
 }
 
     int
-clip_mch_own_selection(VimClipboard *cbd)
+clip_mch_own_selection(Clipboard_T *cbd)
 {
     return clip_x11_own_selection(vimShell, cbd);
 }
 
     void
-clip_mch_request_selection(VimClipboard *cbd)
+clip_mch_request_selection(Clipboard_T *cbd)
 {
  clip_x11_request_selection(vimShell, gui.dpy, cbd);
 }
 
     void
 clip_mch_set_selection(
-    VimClipboard	*cbd)
+    Clipboard_T	*cbd)
 {
     clip_x11_set_selection(cbd);
 }
@@ -3045,7 +2893,7 @@ gui_mch_menu_hidden(vimmenu_T *menu, int hidden)
     void
 gui_mch_draw_menubar(void)
 {
-    /* Nothing to do in X */
+    // Nothing to do in X
 }
 
     void
@@ -3057,7 +2905,7 @@ gui_x11_menu_cb(
     gui_menu_cb((vimmenu_T *)client_data);
 }
 
-#endif /* FEAT_MENU */
+#endif // FEAT_MENU
 
 
 
@@ -3087,11 +2935,11 @@ gui_x11_wm_protocol_handler(
 						  wm_atoms[SAVE_YOURSELF_IDX])
     {
 	out_flush();
-	ml_sync_all(FALSE, FALSE);	/* preserve all swap files */
+	ml_sync_all(FALSE, FALSE);	// preserve all swap files
 
-	/* Set the window's WM_COMMAND property, to let the window manager
-	 * know we are done saving ourselves.  We don't want to be restarted,
-	 * thus set argv to NULL. */
+	// Set the window's WM_COMMAND property, to let the window manager
+	// know we are done saving ourselves.  We don't want to be restarted,
+	// thus set argv to NULL.
 	XSetCommand(gui.dpy, XtWindow(vimShell), NULL, 0);
 	return;
     }
@@ -3118,9 +2966,7 @@ gui_x11_send_event_handler(
 
     if (e->type == PropertyNotify && e->window == commWindow
 	    && e->atom == commProperty &&  e->state == PropertyNewValue)
-    {
 	serverEventProc(gui.dpy, event, 0);
-    }
 }
 #endif
 
@@ -3143,6 +2989,18 @@ static long_u		blink_ontime = 400;
 static long_u		blink_offtime = 250;
 static XtIntervalId	blink_timer = (XtIntervalId)0;
 
+    int
+gui_mch_is_blinking(void)
+{
+    return blink_state != BLINK_NONE;
+}
+
+    int
+gui_mch_is_blink_off(void)
+{
+    return blink_state == BLINK_OFF;
+}
+
     void
 gui_mch_set_blinking(long waittime, long on, long off)
 {
@@ -3155,35 +3013,16 @@ gui_mch_set_blinking(long waittime, long on, long off)
  * Stop the cursor blinking.  Show the cursor if it wasn't shown.
  */
     void
-gui_mch_stop_blink(void)
+gui_mch_stop_blink(int may_call_gui_update_cursor)
 {
     if (blink_timer != (XtIntervalId)0)
     {
 	XtRemoveTimeOut(blink_timer);
 	blink_timer = (XtIntervalId)0;
     }
-    if (blink_state == BLINK_OFF)
+    if (blink_state == BLINK_OFF && may_call_gui_update_cursor)
 	gui_update_cursor(TRUE, FALSE);
     blink_state = BLINK_NONE;
-}
-
-/*
- * Start the cursor blinking.  If it was already blinking, this restarts the
- * waiting time and shows the cursor.
- */
-    void
-gui_mch_start_blink(void)
-{
-    if (blink_timer != (XtIntervalId)0)
-	XtRemoveTimeOut(blink_timer);
-    /* Only switch blinking on if none of the times is zero */
-    if (blink_waittime && blink_ontime && blink_offtime && gui.in_focus)
-    {
-	blink_timer = XtAppAddTimeOut(app_context, blink_waittime,
-						      gui_x11_blink_cb, NULL);
-	blink_state = BLINK_ON;
-	gui_update_cursor(TRUE, FALSE);
-    }
 }
 
     static void
@@ -3208,9 +3047,28 @@ gui_x11_blink_cb(
 }
 
 /*
+ * Start the cursor blinking.  If it was already blinking, this restarts the
+ * waiting time and shows the cursor.
+ */
+    void
+gui_mch_start_blink(void)
+{
+    if (blink_timer != (XtIntervalId)0)
+	XtRemoveTimeOut(blink_timer);
+    // Only switch blinking on if none of the times is zero
+    if (blink_waittime && blink_ontime && blink_offtime && gui.in_focus)
+    {
+	blink_timer = XtAppAddTimeOut(app_context, blink_waittime,
+						      gui_x11_blink_cb, NULL);
+	blink_state = BLINK_ON;
+	gui_update_cursor(TRUE, FALSE);
+    }
+}
+
+/*
  * Return the RGB value of a pixel as a long.
  */
-    long_u
+    guicolor_T
 gui_mch_get_rgb(guicolor_T pixel)
 {
     XColor	xc;
@@ -3220,8 +3078,8 @@ gui_mch_get_rgb(guicolor_T pixel)
     xc.pixel = pixel;
     XQueryColor(gui.dpy, colormap, &xc);
 
-    return ((xc.red & 0xff00) << 8) + (xc.green & 0xff00)
-						   + ((unsigned)xc.blue >> 8);
+    return (guicolor_T)(((xc.red & 0xff00) << 8) + (xc.green & 0xff00)
+						   + ((unsigned)xc.blue >> 8));
 }
 
 /*
@@ -3262,7 +3120,7 @@ gui_x11_callbacks(Widget textArea, Widget vimForm)
     XtAddEventHandler(textArea, KeyPressMask, FALSE, gui_x11_key_hit_cb,
 	(XtPointer)0);
 
-    /* get pointer moved events from scrollbar, needed for 'mousefocus' */
+    // get pointer moved events from scrollbar, needed for 'mousefocus'
     XtAddEventHandler(vimForm, PointerMotionMask,
 	FALSE, gui_x11_mouse_cb, (XtPointer)1);
     XtAddEventHandler(textArea, ButtonPressMask | ButtonReleaseMask |
@@ -3307,8 +3165,8 @@ gui_x11_get_last_mouse_event(void)
 
 #if defined(FEAT_SIGN_ICONS) || defined(PROTO)
 
-/* Signs are currently always 2 chars wide.  Hopefully the font is big enough
- * to provide room for the bitmap! */
+// Signs are currently always 2 chars wide.  Hopefully the font is big enough
+// to provide room for the bitmap!
 # define SIGN_WIDTH (gui.char_width * 2)
 
     void
@@ -3356,12 +3214,12 @@ gui_mch_register_sign(char_u *signfile)
 							 &sign, NULL, &attrs);
 	if (status == 0)
 	{
-	    /* Sign width is fixed at two columns now.
-	    if (sign->width > gui.sign_width)
-		gui.sign_width = sign->width + 8; */
+	    // Sign width is fixed at two columns now.
+	    // if (sign->width > gui.sign_width)
+	    //     gui.sign_width = sign->width + 8;
 	}
 	else
-	    EMSG(_(e_signdata));
+	    emsg(_(e_signdata));
     }
 
     return (void *)sign;
@@ -3376,8 +3234,8 @@ gui_mch_destroy_sign(void *sign)
 
 
 #ifdef FEAT_MOUSESHAPE
-/* The last set mouse pointer shape is remembered, to be used when it goes
- * from hidden to not hidden. */
+// The last set mouse pointer shape is remembered, to be used when it goes
+// from hidden to not hidden.
 static int last_shape = 0;
 #endif
 
@@ -3386,7 +3244,7 @@ static int last_shape = 0;
  */
     void
 gui_mch_mousehide(
-    int		hide)	/* TRUE = use blank ptr, FALSE = use parent ptr */
+    int		hide)	// TRUE = use blank ptr, FALSE = use parent ptr
 {
     if (gui.pointer_hidden != hide)
     {
@@ -3404,27 +3262,27 @@ gui_mch_mousehide(
 
 #if defined(FEAT_MOUSESHAPE) || defined(PROTO)
 
-/* Table for shape IDs.  Keep in sync with the mshape_names[] table in
- * misc2.c! */
+// Table for shape IDs.  Keep in sync with the mshape_names[] table in
+// misc2.c!
 static int mshape_ids[] =
 {
-    XC_left_ptr,		/* arrow */
-    0,				/* blank */
-    XC_xterm,			/* beam */
-    XC_sb_v_double_arrow,	/* updown */
-    XC_sizing,			/* udsizing */
-    XC_sb_h_double_arrow,	/* leftright */
-    XC_sizing,			/* lrsizing */
-    XC_watch,			/* busy */
-    XC_X_cursor,		/* no */
-    XC_crosshair,		/* crosshair */
-    XC_hand1,			/* hand1 */
-    XC_hand2,			/* hand2 */
-    XC_pencil,			/* pencil */
-    XC_question_arrow,		/* question */
-    XC_right_ptr,		/* right-arrow */
-    XC_center_ptr,		/* up-arrow */
-    XC_left_ptr			/* last one */
+    XC_left_ptr,		// arrow
+    0,				// blank
+    XC_xterm,			// beam
+    XC_sb_v_double_arrow,	// updown
+    XC_sizing,			// udsizing
+    XC_sb_h_double_arrow,	// leftright
+    XC_sizing,			// lrsizing
+    XC_watch,			// busy
+    XC_X_cursor,		// no
+    XC_crosshair,		// crosshair
+    XC_hand1,			// hand1
+    XC_hand2,			// hand2
+    XC_pencil,			// pencil
+    XC_question_arrow,		// question
+    XC_right_ptr,		// right-arrow
+    XC_center_ptr,		// up-arrow
+    XC_left_ptr			// last one
 };
 
     void
@@ -3445,7 +3303,7 @@ mch_set_mouse_shape(int shape)
 	    if (id >= XC_num_glyphs)
 		id = XC_left_ptr;
 	    else
-		id &= ~1;	/* they are always even (why?) */
+		id &= ~1;	// they are always even (why?)
 	}
 	else
 	    id = mshape_ids[shape];
@@ -3457,7 +3315,7 @@ mch_set_mouse_shape(int shape)
 }
 #endif
 
-#if (defined(FEAT_TOOLBAR) && defined(FEAT_BEVAL)) || defined(PROTO)
+#if (defined(FEAT_TOOLBAR) && defined(FEAT_BEVAL_GUI)) || defined(PROTO)
 /*
  * Set the balloon-eval used for the tooltip of a toolbar menu item.
  * The check for a non-toolbar item was added, because there is a crash when
@@ -3469,8 +3327,8 @@ gui_mch_menu_set_tip(vimmenu_T *menu)
     if (menu->id != NULL && menu->parent != NULL
 				       && menu_is_toolbar(menu->parent->name))
     {
-	/* Always destroy and create the balloon, in case the string was
-	 * changed. */
+	// Always destroy and create the balloon, in case the string was
+	// changed.
 	if (menu->tip != NULL)
 	{
 	    gui_mch_destroy_beval_area(menu->tip);

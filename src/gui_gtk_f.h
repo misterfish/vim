@@ -1,4 +1,4 @@
-/* vi:set ts=8 sts=4 sw=4:
+/* vi:set ts=8 sts=4 sw=4 noet:
  *
  * VIM - Vi IMproved		by Bram Moolenaar
  *
@@ -43,19 +43,7 @@ struct _GtkForm
     GtkContainer container;
 
     GList *children;
-
-#ifndef USE_GTK3
-    guint width;
-    guint height;
-#endif
-
     GdkWindow *bin_window;
-
-#ifndef USE_GTK3
-    GdkVisibilityState visibility;
-    gulong configure_serial;
-#endif
-
     gint freeze_count;
 };
 
@@ -82,10 +70,9 @@ void gtk_form_move_resize(GtkForm * form, GtkWidget * widget,
 	gint x, gint y,
 	gint w, gint h);
 
-/* These disable and enable moving and repainting respectively.  If you
- * want to update the layout's offsets but do not want it to repaint
- * itself, you should use these functions.
- */
+// These disable and enable moving and repainting respectively.  If you
+// want to update the layout's offsets but do not want it to repaint
+// itself, you should use these functions.
 
 void gtk_form_freeze(GtkForm *form);
 void gtk_form_thaw(GtkForm *form);
@@ -94,4 +81,4 @@ void gtk_form_thaw(GtkForm *form);
 #ifdef __cplusplus
 }
 #endif
-#endif	/* __GTK_FORM_H__ */
+#endif	// __GTK_FORM_H__

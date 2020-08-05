@@ -1,5 +1,5 @@
 " Test binding arguments to a Funcref.
-
+ 
 func MyFunc(arg1, arg2, arg3)
   return a:arg1 . '/' . a:arg2 . '/' . a:arg3
 endfunc
@@ -12,6 +12,14 @@ func MySort(up, one, two)
     return a:one > a:two ? 1 : -1
   endif
   return a:one < a:two ? 1 : -1
+endfunc
+
+func MyMap(sub, index, val)
+  return a:val - a:sub
+endfunc
+
+func MyFilter(threshold, index, val)
+  return a:val > a:threshold
 endfunc
 
 func Test_partial_args()
@@ -36,6 +44,16 @@ func Test_partial_args()
   call assert_equal([1, 2, 3], sort([3, 1, 2], Sort))
   let Sort = function('MySort', [0])
   call assert_equal([3, 2, 1], sort([3, 1, 2], Sort))
+
+  let Map = function('MyMap', [2])
+  call assert_equal([-1, 0, 1], map([1, 2, 3], Map))
+  let Map = function('MyMap', [3])
+  call assert_equal([-2, -1, 0], map([1, 2, 3], Map))
+
+  let Filter = function('MyFilter', [1])
+  call assert_equal([2, 3], filter([1, 2, 3], Filter))
+  let Filter = function('MyFilter', [2])
+  call assert_equal([3], filter([1, 2, 3], Filter))
 endfunc
 
 func MyDictFunc(arg1, arg2) dict
@@ -45,6 +63,7 @@ endfunc
 func Test_partial_dict()
   let dict = {'name': 'hello'}
   let Cb = function('MyDictFunc', ["foo", "bar"], dict)
+  call test_garbagecollect_now()
   call assert_equal("hello/foo/bar", Cb())
   call assert_fails('Cb("xxx")', 'E492:')
 
@@ -60,8 +79,14 @@ func Test_partial_dict()
   call assert_equal("hello/xxx/yyy", Cb("xxx", "yyy"))
   call assert_fails('Cb("fff")', 'E492:')
 
+  let Cb = function('MyDictFunc', dict)
+  call assert_equal({"foo": "hello/foo/1", "bar": "hello/bar/2"}, map({"foo": 1, "bar": 2}, Cb))
+
   let dict = {"tr": function('tr', ['hello', 'h', 'H'])}
   call assert_equal("Hello", dict.tr())
+
+  call assert_fails("let F=function('setloclist', 10)", "E923:")
+  call assert_fails("let F=function('setloclist', [], [])", "E922:")
 endfunc
 
 func Test_partial_implicit()
@@ -85,7 +110,7 @@ fun InnerCall(funcref)
 endfu
 
 fun OuterCall()
-  let opt = { 'func' : function('sin') }
+  let opt = { 'func' : function('max') }
   call InnerCall(opt.func)
 endfu
 
@@ -93,9 +118,9 @@ func Test_function_in_dict()
   call OuterCall()
 endfunc
 
-function! s:cache_clear() dict
+func s:cache_clear() dict
   return self.name
-endfunction
+endfunc
 
 func Test_script_function_in_dict()
   let s:obj = {'name': 'foo'}
@@ -115,10 +140,10 @@ func Test_script_function_in_dict()
   call assert_equal('bar', B())
 endfunc
 
-function! s:cache_arg(arg) dict
+func s:cache_arg(arg) dict
   let s:result = self.name . '/' . a:arg
   return s:result
-endfunction
+endfunc
 
 func Test_script_function_in_dict_arg()
   let s:obj = {'name': 'foo'}
@@ -169,6 +194,8 @@ func Test_partial_string()
   call assert_equal("function('MyFunc', {'one': 1})", string(F))
   let F = function('MyFunc', ['foo'], d)
   call assert_equal("function('MyFunc', ['foo'], {'one': 1})", string(F))
+  call assert_equal("function('')", string(test_null_function()))
+  call assert_equal("function('')", string(test_null_partial()))
 endfunc
 
 func Test_func_unref()
@@ -239,21 +266,145 @@ func Test_cyclic_dict_arg()
   unlet Pt
 endfunc
 
-func Ignored(job1, job2, status)
+func Ignored3(job1, job2, status)
 endfunc
 
 func Test_cycle_partial_job()
   if has('job')
     let job = job_start('echo')
-    call job_setoptions(job, {'exit_cb': function('Ignored', [job])})
+    call job_setoptions(job, {'exit_cb': function('Ignored3', [job])})
     unlet job
   endif
+endfunc
+
+func Ignored2(job, status)
 endfunc
 
 func Test_ref_job_partial_dict()
   if has('job')
     let g:ref_job = job_start('echo')
     let d = {'a': 'b'}
-    call job_setoptions(g:ref_job, {'exit_cb': function('string', [], d)})
+    call job_setoptions(g:ref_job, {'exit_cb': function('Ignored2', [], d)})
+    call test_garbagecollect_now()
   endif
 endfunc
+
+func Test_auto_partial_rebind()
+  let dict1 = {'name': 'dict1'}
+  func! dict1.f1()
+    return self.name
+  endfunc
+  let dict1.f2 = function(dict1.f1, dict1)
+
+  call assert_equal('dict1', dict1.f1())
+  call assert_equal('dict1', dict1['f1']())
+  call assert_equal('dict1', dict1.f2())
+  call assert_equal('dict1', dict1['f2']())
+
+  let dict2 = {'name': 'dict2'}
+  let dict2.f1 = dict1.f1
+  let dict2.f2 = dict1.f2
+
+  call assert_equal('dict2', dict2.f1())
+  call assert_equal('dict2', dict2['f1']())
+  call assert_equal('dict1', dict2.f2())
+  call assert_equal('dict1', dict2['f2']())
+endfunc
+
+func Test_get_partial_items()
+  let dict = {'name': 'hello'}
+  let args = ["foo", "bar"]
+  let Func = function('MyDictFunc')
+  let Cb = function('MyDictFunc', args, dict)
+
+  call assert_equal(Func, get(Cb, 'func'))
+  call assert_equal('MyDictFunc', get(Cb, 'name'))
+  call assert_equal(args, get(Cb, 'args'))
+  call assert_equal(dict, get(Cb, 'dict'))
+  call assert_fails('call get(Cb, "xxx")', 'E475:')
+
+  call assert_equal(Func, get(Func, 'func'))
+  call assert_equal('MyDictFunc', get(Func, 'name'))
+  call assert_equal([], get(Func, 'args'))
+  call assert_true(empty( get(Func, 'dict')))
+
+  let P = function('substitute', ['hello there', 'there'])
+  let dict = {'partial has': 'no dict'}
+  call assert_equal(dict, get(P, 'dict', dict))
+  call assert_equal(0, get(l:P, 'dict'))
+endfunc
+
+func Test_compare_partials()
+  let d1 = {}
+  let d2 = {}
+
+  function d1.f1() dict
+  endfunction
+
+  function d1.f2() dict
+  endfunction
+
+  let F1 = get(d1, 'f1')
+  let F2 = get(d1, 'f2')
+
+  let F1d1 = function(F1, d1)
+  let F2d1 = function(F2, d2)
+  let F1d1a1 = function(F1d1, [1])
+  let F1d1a12 = function(F1d1, [1, 2])
+  let F1a1 = function(F1, [1])
+  let F1a2 = function(F1, [2])
+  let F1d2 = function(F1, d2)
+  let d3 = {'f1': F1, 'f2': F2}
+  let F1d3 = function(F1, d3)
+  let F1ad1 = function(F1, [d1])
+  let F1ad3 = function(F1, [d3])
+
+  call assert_match('^function(''\d\+'')$', string(F1))  " Not a partial
+  call assert_match('^function(''\d\+'')$', string(F2))  " Not a partial
+  call assert_match('^function(''\d\+'', {.*})$', string(F1d1))  " A partial
+  call assert_match('^function(''\d\+'', {.*})$', string(F2d1))  " A partial
+  call assert_match('^function(''\d\+'', \[.*\])$', string(F1a1))  " No dict
+
+  " !=
+  let X = F1
+  call assert_false(F1 != X)  " same function
+  let X = F1d1
+  call assert_false(F1d1 != X)  " same partial
+  let X = F1d1a1
+  call assert_false(F1d1a1 != X)  " same partial
+  let X = F1a1
+  call assert_false(F1a1 != X)  " same partial
+
+  call assert_true(F1 != F2)  " Different functions
+  call assert_true(F1 != F1d1)  " Partial /= non-partial
+  call assert_true(F1d1a1 != F1d1a12)  " Different number of arguments
+  call assert_true(F1a1 != F1d1a12)  " One has no dict
+  call assert_true(F1a1 != F1a2)  " Different arguments
+  call assert_true(F1d2 != F1d1)  " Different dictionaries
+  call assert_false(F1d1 != F1d3)  " Equal dictionaries, even though d1 isnot d3
+
+  " isnot, option 1
+  call assert_true(F1 isnot# F2)  " Different functions
+  call assert_true(F1 isnot# F1d1)  " Partial /= non-partial
+  call assert_true(F1d1 isnot# F1d3)  " d1 isnot d3, even though d1 == d3
+  call assert_true(F1a1 isnot# F1d1a12)  " One has no dict
+  call assert_true(F1a1 isnot# F1a2)  " Different number of arguments
+  call assert_true(F1ad1 isnot# F1ad3)  " In arguments d1 isnot d3
+
+  " isnot, option 2
+  call assert_true(F1 isnot# F2)  " Different functions
+  call assert_true(F1 isnot# F1d1)  " Partial /= non-partial
+  call assert_true(d1.f1 isnot# d1.f1)  " handle_subscript creates new partial each time
+
+  " compare two null partials
+  let N1 = test_null_partial()
+  let N2 = N1
+  call assert_true(N1 is N2)
+  call assert_true(N1 == N2)
+
+  " compare a partial and a null partial
+  call assert_false(N1 == F1)
+  call assert_false(F1 is N1)
+endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab

@@ -1,4 +1,4 @@
-" Tests for using Ctrl-A/Ctrl-X on visual selections
+" Tests for using Ctrl-A/Ctrl-X
 
 func SetUp()
   new dummy
@@ -364,11 +364,25 @@ endfunc
 "     Expected:
 "     1) Ctrl-a on visually selected zero
 "     111
+"
+" Also: 019 with "01" selected increments to "029".
 func Test_visual_increment_15()
   call setline(1, ["101"])
   exec "norm! lv\<C-A>"
   call assert_equal(["111"], getline(1, '$'))
   call assert_equal([0, 1, 2, 0], getpos('.'))
+
+  call setline(1, ["019"])
+  exec "norm! 0vl\<C-A>"
+  call assert_equal("029", getline(1))
+
+  call setline(1, ["01239"])
+  exec "norm! 0vlll\<C-A>"
+  call assert_equal("01249", getline(1))
+
+  call setline(1, ["01299"])
+  exec "norm! 0vlll\<C-A>"
+  call assert_equal("1309", getline(1))
 endfunc
 
 " 16) increment right aligned numbers
@@ -461,6 +475,10 @@ func Test_visual_increment_20()
   exec "norm! \<C-A>"
   call assert_equal(["b"], getline(1, '$'))
   call assert_equal([0, 1, 1, 0], getpos('.'))
+  " decrement a and A and increment z and Z
+  call setline(1, ['a', 'A', 'z', 'Z'])
+  exe "normal 1G\<C-X>2G\<C-X>3G\<C-A>4G\<C-A>"
+  call assert_equal(['a', 'A', 'z', 'Z'], getline(1, '$'))
 endfunc
 
 " 21) block-wise increment on part of hexadecimal
@@ -551,12 +569,14 @@ endfunc
 "   1) <ctrl-a>
 " 0b11111111111111111111111111111111
 func Test_visual_increment_26()
-  set nrformats+=alpha
+  set nrformats+=bin
   call setline(1, ["0b11111111111111111111111111111110"])
   exec "norm! \<C-V>$\<C-A>"
   call assert_equal(["0b11111111111111111111111111111111"], getline(1, '$'))
   call assert_equal([0, 1, 1, 0], getpos('.'))
-  set nrformats-=alpha
+  exec "norm! \<C-V>$\<C-X>"
+  call assert_equal(["0b11111111111111111111111111111110"], getline(1, '$'))
+  set nrformats-=bin
 endfunc
 
 " 27) increment with 'rightreft', if supported
@@ -735,5 +755,125 @@ func Test_normal_increment_02()
   call assert_equal([0, 2, 4, 0], getpos('.'))
 endfunc
 
+" The test35 unified to this file.
+func Test_normal_increment_03()
+  call setline(1, ["100     0x100     077     0",
+        \          "100     0x100     077     ",
+        \          "100     0x100     077     0xfF     0xFf",
+        \          "100     0x100     077     "])
+  set nrformats=octal,hex
+  exec "norm! gg\<C-A>102\<C-X>\<C-A>l\<C-X>l\<C-A>64\<C-A>128\<C-X>$\<C-X>"
+  set nrformats=octal
+  exec "norm! j0\<C-A>102\<C-X>\<C-A>l\<C-X>2\<C-A>w65\<C-A>129\<C-X>blx6lD"
+  set nrformats=hex
+  exec "norm! j0101\<C-X>l257\<C-X>\<C-A>Txldt \<C-A> \<C-X> \<C-X>"
+  set nrformats=
+  exec "norm! j0200\<C-X>l100\<C-X>w78\<C-X>\<C-A>k"
+  call assert_equal(["0     0x0ff     0000     -1",
+        \            "0     1x100     0777777",
+        \            "-1     0x0     078     0xFE     0xfe",
+        \            "-100     -100x100     000     "], getline(1, '$'))
+  call assert_equal([0, 3, 25, 0], getpos('.'))
+endfunc
 
-" vim: tabstop=2 shiftwidth=2 expandtab
+func Test_increment_empty_line()
+  call setline(1, ['0', '0', '0', '0', '0', '0', ''])
+  exe "normal Gvgg\<C-A>"
+  call assert_equal(['1', '1', '1', '1', '1', '1', ''], getline(1, 7))
+
+  " Ctrl-A/Ctrl-X should do nothing in operator pending mode
+  %d
+  call setline(1, 'one two')
+  exe "normal! c\<C-A>l"
+  exe "normal! c\<C-X>l"
+  call assert_equal('one two', getline(1))
+endfunc
+
+" Try incrementing/decrementing a non-digit/alpha character
+func Test_increment_special_char()
+  call setline(1, '!')
+  call assert_beeps("normal \<C-A>")
+  call assert_beeps("normal \<C-X>")
+endfunc
+
+" Try incrementing/decrementing a number when nrformats contains unsigned
+func Test_increment_unsigned()
+  set nrformats+=unsigned
+
+  call setline(1, '0')
+  exec "norm! gg0\<C-X>"
+  call assert_equal('0', getline(1))
+
+  call setline(1, '3')
+  exec "norm! gg010\<C-X>"
+  call assert_equal('0', getline(1))
+
+  call setline(1, '-0')
+  exec "norm! gg0\<C-X>"
+  call assert_equal("-0", getline(1))
+
+  call setline(1, '-11')
+  exec "norm! gg08\<C-X>"
+  call assert_equal('-3', getline(1))
+
+  " NOTE: 18446744073709551615 == 2^64 - 1
+  call setline(1, '18446744073709551615')
+  exec "norm! gg0\<C-A>"
+  call assert_equal('18446744073709551615', getline(1))
+
+  call setline(1, '-18446744073709551615')
+  exec "norm! gg0\<C-A>"
+  call assert_equal('-18446744073709551615', getline(1))
+
+  call setline(1, '-18446744073709551614')
+  exec "norm! gg08\<C-A>"
+  call assert_equal('-18446744073709551615', getline(1))
+
+  call setline(1, '-1')
+  exec "norm! gg0\<C-A>"
+  call assert_equal('-2', getline(1))
+
+  call setline(1, '-3')
+  exec "norm! gg08\<C-A>"
+  call assert_equal('-11', getline(1))
+
+  set nrformats-=unsigned
+endfunc
+
+func Test_normal_increment_with_virtualedit()
+  set virtualedit=all
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 0\<C-A>"
+  call assert_equal("\<TAB>2", getline(1))
+  call assert_equal([0, 1, 2, 0], getpos('.'))
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 0l\<C-A>"
+  call assert_equal("\<TAB>2", getline(1))
+  call assert_equal([0, 1, 2, 0], getpos('.'))
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 07l\<C-A>"
+  call assert_equal("\<TAB>2", getline(1))
+  call assert_equal([0, 1, 2, 0], getpos('.'))
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 0w\<C-A>"
+  call assert_equal("\<TAB>2", getline(1))
+  call assert_equal([0, 1, 2, 0], getpos('.'))
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 0wl\<C-A>"
+  call assert_equal("\<TAB>1", getline(1))
+  call assert_equal([0, 1, 3, 0], getpos('.'))
+
+  call setline(1, ["\<TAB>1"])
+  exec "norm! 0w30l\<C-A>"
+  call assert_equal("\<TAB>1", getline(1))
+  call assert_equal([0, 1, 3, 29], getpos('.'))
+
+  set virtualedit&
+endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab
